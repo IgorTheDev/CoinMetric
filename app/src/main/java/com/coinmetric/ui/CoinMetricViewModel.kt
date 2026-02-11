@@ -1,9 +1,12 @@
 package com.coinmetric.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 private data class SampleTransaction(
     val title: String,
@@ -14,6 +17,7 @@ private data class SampleTransaction(
 )
 
 data class DashboardState(
+    val isLoading: Boolean = true,
     val balance: Int = 125_600,
     val income: Int = 178_500,
     val expense: Int = 52_900,
@@ -60,6 +64,13 @@ class CoinMetricViewModel : ViewModel() {
     private val _settings = MutableStateFlow(SettingsState())
     val settings: StateFlow<SettingsState> = _settings.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            delay(500)
+            _dashboard.value = buildDashboardState(isLoading = false)
+        }
+    }
+
     fun updateAmount(value: String) {
         _addState.value = _addState.value.copy(amount = value, error = null, successMessage = null)
     }
@@ -96,7 +107,7 @@ class CoinMetricViewModel : ViewModel() {
             ),
         )
 
-        _dashboard.value = buildDashboardState()
+        _dashboard.value = buildDashboardState(isLoading = false)
         _addState.value = AddTransactionState(successMessage = "Операция сохранена")
         onSuccess()
     }
@@ -109,10 +120,11 @@ class CoinMetricViewModel : ViewModel() {
         _settings.value = _settings.value.copy(googleSyncEnabled = enabled)
     }
 
-    private fun buildDashboardState(): DashboardState {
+    private fun buildDashboardState(isLoading: Boolean = true): DashboardState {
         val totalIncome = transactions.filter { it.amount > 0 }.sumOf { it.amount }
         val totalExpense = transactions.filter { it.amount < 0 }.sumOf { -it.amount }
         return DashboardState(
+            isLoading = isLoading,
             balance = totalIncome - totalExpense,
             income = totalIncome,
             expense = totalExpense,
