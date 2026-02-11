@@ -11,6 +11,7 @@ data class FamilyMember(
     val name: String,
     val email: String,
     val role: String,
+    val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
 @Entity
@@ -18,6 +19,7 @@ data class Category(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val colorHex: String,
+    val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
 @Entity(
@@ -36,6 +38,7 @@ data class CategoryLimit(
     val categoryId: Long,
     val monthlyLimit: Double,
     val monthKey: String,
+    val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
 @Entity(
@@ -63,6 +66,7 @@ data class TransactionEntity(
     val memberId: Long?,
     val dateEpochMillis: Long,
     val isIncome: Boolean,
+    val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
 @Entity
@@ -73,4 +77,16 @@ data class RecurringPayment(
     val dayOfMonth: Int,
     val categoryId: Long?,
     val active: Boolean = true,
+    val updatedAtEpochMillis: Long = System.currentTimeMillis(),
+)
+
+@Entity
+data class CollaborationInvite(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val email: String,
+    val inviterName: String,
+    val role: String = "editor",
+    val status: String = "pending",
+    val createdAtEpochMillis: Long = System.currentTimeMillis(),
+    val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
