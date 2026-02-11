@@ -1,12 +1,14 @@
 package com.coinmetric.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -17,7 +19,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
@@ -27,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,7 +56,7 @@ fun CoinMetricRoot() {
                         )
                     },
                 )
-                TabRow(selectedTabIndex = tab) {
+                ScrollableTabRow(selectedTabIndex = tab) {
                     tabs.forEachIndexed { index, title ->
                         Tab(selected = tab == index, onClick = { tab = index }, text = { Text(title) })
                     }
@@ -74,12 +77,11 @@ fun CoinMetricRoot() {
 @Composable
 private fun DashboardScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modifier = Modifier) {
     var limitValue by remember { mutableStateOf("") }
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    AdaptiveScreenContainer(modifier = modifier) { containerModifier ->
+        LazyColumn(
+            modifier = containerModifier,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
         item {
             SectionCard(title = "Обзор бюджета") {
                 SummaryRow("Доходы", "${"%.2f".format(state.totalIncome)} ₽")
@@ -208,12 +210,11 @@ private fun PeriodReportCard(report: BudgetPeriodReport) {
 private fun TransactionsScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modifier = Modifier) {
     var expr by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-    Column(
-        modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    AdaptiveScreenContainer(modifier = modifier) { containerModifier ->
+        Column(
+            containerModifier,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
         SectionCard(title = "Добавить транзакцию") {
             TextField(
                 modifier = Modifier.fillMaxWidth(),
@@ -271,12 +272,11 @@ private fun TransactionsScreen(vm: CoinMetricViewModel, state: UiState, modifier
 
 @Composable
 private fun CalendarScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modifier = Modifier) {
-    LazyColumn(
-        modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    AdaptiveScreenContainer(modifier = modifier) { containerModifier ->
+        LazyColumn(
+            modifier = containerModifier,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
         item { Text("Календарь трат", style = MaterialTheme.typography.titleMedium) }
         val groupedTransactions = state.transactions.groupBy { vm.formatDate(it.dateEpochMillis) }.toList()
         if (groupedTransactions.isEmpty()) {
@@ -303,12 +303,11 @@ private fun FamilyScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modi
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var inviteEmail by remember { mutableStateOf("") }
-    Column(
-        modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    AdaptiveScreenContainer(modifier = modifier) { containerModifier ->
+        Column(
+            containerModifier,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
         SectionCard(title = "Семейный доступ") {
             TextField(modifier = Modifier.fillMaxWidth(), value = name, onValueChange = { name = it }, label = { Text("Имя") })
             TextField(modifier = Modifier.fillMaxWidth(), value = email, onValueChange = { email = it }, label = { Text("Email (Google)") })
@@ -370,12 +369,11 @@ private fun RecurringScreen(vm: CoinMetricViewModel, state: UiState, modifier: M
     var title by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var day by remember { mutableStateOf("1") }
-    Column(
-        modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    AdaptiveScreenContainer(modifier = modifier) { containerModifier ->
+        Column(
+            containerModifier,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
         SectionCard(title = "Постоянные платежи") {
             TextField(modifier = Modifier.fillMaxWidth(), value = title, onValueChange = { title = it }, label = { Text("Название") })
             TextField(modifier = Modifier.fillMaxWidth(), value = amount, onValueChange = { amount = it }, label = { Text("Сумма") })
@@ -434,7 +432,26 @@ private fun SectionCard(title: String? = null, compact: Boolean = false, content
 @Composable
 private fun SummaryRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, modifier = Modifier.width(170.dp))
+        Text(label, modifier = Modifier.weight(1f))
         Text(value)
+    }
+}
+
+@Composable
+private fun AdaptiveScreenContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable (Modifier) -> Unit,
+) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val maxContainerWidth = if (maxWidth >= 900.dp) 840.dp else 640.dp
+        val horizontalPadding = if (maxWidth >= 900.dp) 24.dp else 12.dp
+
+        content(
+            Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxSize()
+                .widthIn(max = maxContainerWidth)
+                .padding(horizontal = horizontalPadding, vertical = 12.dp),
+        )
     }
 }
