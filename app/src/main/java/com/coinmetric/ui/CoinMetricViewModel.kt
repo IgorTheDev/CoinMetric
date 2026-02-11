@@ -25,27 +25,50 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = BudgetRepository(CoinMetricDatabase.get(app).dao())
     private val notificationHelper = LimitNotificationHelper(app)
 
+    private data class CoreState(
+        val categories: List<Category>,
+        val members: List<FamilyMember>,
+        val invites: List<CollaborationInvite>,
+        val limits: List<CategoryLimit>,
+        val recurringPayments: List<RecurringPayment>,
+    )
+
+    private data class FinanceState(
+        val transactions: List<TransactionEntity>,
+        val categorySpend: List<CategorySpendRow>,
+        val totalIncome: Double,
+        val totalExpense: Double,
+    )
+
     val state: StateFlow<UiState> = combine(
-        repository.categories(),
-        repository.members(),
-        repository.invites(),
-        repository.limits(),
-        repository.recurringPayments(),
-        repository.transactions(),
-        repository.categorySpend(),
-        repository.income(),
-        repository.expenses(),
-    ) { categories, members, invites, limits, recurring, transactions, spend, income, expense ->
+        combine(
+            repository.categories(),
+            repository.members(),
+            repository.invites(),
+            repository.limits(),
+            repository.recurringPayments(),
+        ) { categories, members, invites, limits, recurring ->
+            CoreState(categories, members, invites, limits, recurring)
+        },
+        combine(
+            repository.transactions(),
+            repository.categorySpend(),
+            repository.income(),
+            repository.expenses(),
+        ) { transactions, spend, income, expense ->
+            FinanceState(transactions, spend, income, expense)
+        },
+    ) { core, finance ->
         UiState(
-            categories = categories,
-            members = members,
-            invites = invites,
-            limits = limits,
-            recurringPayments = recurring,
-            transactions = transactions,
-            categorySpend = spend,
-            totalIncome = income,
-            totalExpense = expense,
+            categories = core.categories,
+            members = core.members,
+            invites = core.invites,
+            limits = core.limits,
+            recurringPayments = core.recurringPayments,
+            transactions = finance.transactions,
+            categorySpend = finance.categorySpend,
+            totalIncome = finance.totalIncome,
+            totalExpense = finance.totalExpense,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
 
