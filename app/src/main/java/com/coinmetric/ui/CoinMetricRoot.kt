@@ -13,13 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -41,6 +41,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.coinmetric.ui.theme.CoinMetricTheme
 
 private sealed class Screen(val route: String, val label: String) {
     data object Dashboard : Screen("/", "Главная")
@@ -57,9 +58,11 @@ private data class HeaderConfig(
 
 @Composable
 fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val destination = navBackStackEntry?.destination
+    val currentRoute = destination?.route ?: Screen.Dashboard.route
 
     val navScreens = listOf(
         Screen.Dashboard,
@@ -68,61 +71,65 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
         Screen.Settings,
     )
 
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
-        topBar = {
-            HeaderTitle(
-                route = destination?.route ?: Screen.Dashboard.route,
-                onCancelAdd = { navController.navigateUp() },
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                navScreens.forEach { screen ->
-                    NavigationBarItem(
-                        selected = destination?.hierarchy?.any { it.route == screen.route } == true,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+    CoinMetricTheme(darkTheme = settings.darkThemeEnabled) {
+        Scaffold(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface),
+            topBar = {
+                HeaderTitle(
+                    route = currentRoute,
+                    onCancelAdd = { navController.navigateUp() },
+                )
+            },
+            bottomBar = {
+                NavigationBar {
+                    navScreens.forEach { screen ->
+                        NavigationBarItem(
+                            selected = destination?.hierarchy?.any { it.route == screen.route } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Text(screen.label.take(1)) },
-                        label = { Text(screen.label) },
-                    )
+                            },
+                            icon = { Text(screen.label.take(1)) },
+                            label = { Text(screen.label) },
+                        )
+                    }
                 }
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate(Screen.Add.route) }) {
-                Text("Добавить")
-            }
-        },
-    ) { padding ->
-        MobileLayout(padding) {
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Dashboard.route,
-            ) {
-                composable(Screen.Dashboard.route) {
-                    DashboardScreen(vm)
+            },
+            floatingActionButton = {
+                if (currentRoute != Screen.Add.route) {
+                    FloatingActionButton(onClick = { navController.navigate(Screen.Add.route) }) {
+                        Text("Добавить")
+                    }
                 }
-                composable(Screen.Calendar.route) {
-                    CalendarScreen(vm)
-                }
-                composable(Screen.Add.route) {
-                    AddScreen(vm) { navController.navigate(Screen.Dashboard.route) }
-                }
-                composable(Screen.Analytics.route) {
-                    AnalyticsScreen()
-                }
-                composable(Screen.Settings.route) {
-                    SettingsScreen(vm)
+            },
+        ) { padding ->
+            MobileLayout(padding) {
+                NavHost(
+                    navController = navController,
+                    startDestination = Screen.Dashboard.route,
+                ) {
+                    composable(Screen.Dashboard.route) {
+                        DashboardScreen(vm)
+                    }
+                    composable(Screen.Calendar.route) {
+                        CalendarScreen(vm)
+                    }
+                    composable(Screen.Add.route) {
+                        AddScreen(vm) { navController.navigate(Screen.Dashboard.route) }
+                    }
+                    composable(Screen.Analytics.route) {
+                        AnalyticsScreen()
+                    }
+                    composable(Screen.Settings.route) {
+                        SettingsScreen(vm)
+                    }
                 }
             }
         }
@@ -298,6 +305,17 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
 
 @Composable
 private fun AnalyticsScreen() {
+    val categoryDistribution = listOf(
+        "Еда" to 0.39f,
+        "Транспорт" to 0.22f,
+        "Развлечения" to 0.15f,
+    )
+    val limitsByCategory = listOf(
+        "Еда" to 0.78f,
+        "Транспорт" to 0.54f,
+        "Развлечения" to 0.42f,
+    )
+
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text(
@@ -310,9 +328,9 @@ private fun AnalyticsScreen() {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Распределение расходов", fontWeight = FontWeight.SemiBold)
-                    Text("Еда — 39%")
-                    Text("Транспорт — 22%")
-                    Text("Развлечения — 15%")
+                    categoryDistribution.forEach { (title, percent) ->
+                        Text("$title — ${(percent * 100).toInt()}%")
+                    }
                 }
             }
         }
@@ -320,9 +338,15 @@ private fun AnalyticsScreen() {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Лимиты по категориям", fontWeight = FontWeight.SemiBold)
-                    Text("Еда: 78%")
-                    Text("Транспорт: 54%")
-                    Text("Развлечения: 42%")
+                    limitsByCategory.forEach { (title, progress) ->
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("$title: ${(progress * 100).toInt()}%")
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -333,6 +357,10 @@ private fun AnalyticsScreen() {
 @Composable
 private fun CalendarScreen(vm: CoinMetricViewModel) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
+    val groupedTransactions = state.latestTransactions.groupBy {
+        it.substringAfterLast("· ").trim()
+    }
+
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text(
@@ -345,12 +373,14 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Календарь", fontWeight = FontWeight.SemiBold)
-                    Text("Сегодня")
-                    val todayOps = state.latestTransactions.filter { it.contains("Сегодня") }
-                    if (todayOps.isEmpty()) {
+                    if (groupedTransactions.isEmpty()) {
                         Text("Нет операций на выбранную дату")
                     } else {
-                        todayOps.forEach { op -> Text(op) }
+                        groupedTransactions.forEach { (date, items) ->
+                            Text(date, fontWeight = FontWeight.Medium)
+                            items.forEach { op -> Text(op) }
+                            Spacer(Modifier.height(4.dp))
+                        }
                     }
                 }
             }
