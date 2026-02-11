@@ -118,12 +118,42 @@ private fun DashboardScreen(vm: CoinMetricViewModel, state: UiState, modifier: M
             }
         }
 
+        item {
+            Text("Регулярные отчёты", style = MaterialTheme.typography.titleMedium)
+        }
+        item {
+            PeriodReportCard(report = state.weeklyReport)
+        }
+        item {
+            PeriodReportCard(report = state.monthlyReport)
+        }
+
         item { Text("Аналитика по категориям", style = MaterialTheme.typography.titleMedium) }
         items(state.categorySpend) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(it.category)
                 Text("${"%.2f".format(it.spent)} ₽")
             }
+        }
+    }
+}
+
+@Composable
+private fun PeriodReportCard(report: BudgetPeriodReport) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(report.title, style = MaterialTheme.typography.titleSmall)
+            Text("Доходы: ${"%.2f".format(report.income)} ₽")
+            Text("Расходы: ${"%.2f".format(report.expense)} ₽")
+            Text("Топ категория: ${report.topExpenseCategory}")
+            val trend = report.expenseTrendPercent
+            Text(
+                if (trend == null) {
+                    "Изменение к прошлому периоду: недостаточно данных"
+                } else {
+                    "Изменение к прошлому периоду: ${if (trend >= 0) "+" else ""}${"%.1f".format(trend)}%"
+                },
+            )
         }
     }
 }
