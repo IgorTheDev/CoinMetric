@@ -41,6 +41,8 @@ data class AddTransactionState(
     val category: String = "",
     val note: String = "",
     val isIncome: Boolean = false,
+    val amountError: String? = null,
+    val categoryError: String? = null,
     val error: String? = null,
     val successMessage: String? = null,
 )
@@ -74,11 +76,21 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun updateAmount(value: String) {
-        _addState.value = _addState.value.copy(amount = value, error = null, successMessage = null)
+        _addState.value = _addState.value.copy(
+            amount = value,
+            amountError = null,
+            error = null,
+            successMessage = null,
+        )
     }
 
     fun updateCategory(value: String) {
-        _addState.value = _addState.value.copy(category = value, error = null, successMessage = null)
+        _addState.value = _addState.value.copy(
+            category = value,
+            categoryError = null,
+            error = null,
+            successMessage = null,
+        )
     }
 
     fun updateNote(value: String) {
@@ -92,8 +104,15 @@ class CoinMetricViewModel : ViewModel() {
     fun saveTransaction(onSuccess: () -> Unit) {
         val state = _addState.value
         val amountValue = state.amount.toIntOrNull()
-        if (amountValue == null || amountValue <= 0 || state.category.isBlank()) {
-            _addState.value = state.copy(error = "Заполните сумму и категорию", successMessage = null)
+        val amountError = if (amountValue == null || amountValue <= 0) "Введите сумму больше 0" else null
+        val categoryError = if (state.category.isBlank()) "Укажите категорию" else null
+        if (amountError != null || categoryError != null) {
+            _addState.value = state.copy(
+                amountError = amountError,
+                categoryError = categoryError,
+                error = "Проверьте обязательные поля",
+                successMessage = null,
+            )
             return
         }
 
