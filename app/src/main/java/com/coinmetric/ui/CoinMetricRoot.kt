@@ -464,12 +464,34 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Тема и синхронизация", fontWeight = FontWeight.SemiBold)
                     SettingRow("Тёмная тема", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
                     SettingRow("Синхронизация Google", settings.googleSyncEnabled) { vm.setGoogleSync(it) }
-                    Text("Семейный доступ")
-                    Text("Добавьте участников семьи в следующих версиях")
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Семейный доступ", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Пригласите участника семьи, чтобы совместно вести бюджет и видеть общие лимиты.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                     Button(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-                        Text("Выйти")
+                        Text("Пригласить участника")
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Общие настройки", fontWeight = FontWeight.SemiBold)
+                    Text("Валюта по умолчанию: RUB")
+                    Text("Уведомления о лимитах: включены")
+                    Button(onClick = {}, modifier = Modifier.fillMaxWidth()) {
+                        Text("Выйти из аккаунта")
                     }
                 }
             }
