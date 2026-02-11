@@ -9,6 +9,8 @@ import com.coinmetric.data.model.CategoryLimit
 import com.coinmetric.data.model.FamilyMember
 import com.coinmetric.data.model.CollaborationInvite
 import com.coinmetric.data.model.RecurringPayment
+import com.coinmetric.data.model.SyncChangeLog
+import com.coinmetric.data.model.SyncState
 import com.coinmetric.data.model.TransactionEntity
 
 @Database(
@@ -19,8 +21,10 @@ import com.coinmetric.data.model.TransactionEntity
         TransactionEntity::class,
         RecurringPayment::class,
         CollaborationInvite::class,
+        SyncChangeLog::class,
+        SyncState::class,
     ],
-    version = 2,
+    version = 3,
 )
 abstract class CoinMetricDatabase : RoomDatabase() {
     abstract fun dao(): CoinMetricDao

@@ -9,6 +9,8 @@ import com.coinmetric.data.model.CategoryLimit
 import com.coinmetric.data.model.CollaborationInvite
 import com.coinmetric.data.model.FamilyMember
 import com.coinmetric.data.model.RecurringPayment
+import com.coinmetric.data.model.SyncChangeLog
+import com.coinmetric.data.model.SyncState
 import com.coinmetric.data.model.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -50,6 +52,12 @@ interface CoinMetricDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertInvites(invites: List<CollaborationInvite>): List<Long>
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertChangeLogs(logs: List<SyncChangeLog>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSyncState(state: SyncState)
+
     @Query("SELECT * FROM category ORDER BY name")
     fun observeCategories(): Flow<List<Category>>
 
@@ -71,20 +79,44 @@ interface CoinMetricDao {
     @Query("SELECT * FROM category")
     suspend fun getAllCategories(): List<Category>
 
+    @Query("SELECT * FROM category WHERE id = :id LIMIT 1")
+    suspend fun getCategoryById(id: Long): Category?
+
     @Query("SELECT * FROM familymember")
     suspend fun getAllMembers(): List<FamilyMember>
+
+    @Query("SELECT * FROM familymember WHERE id = :id LIMIT 1")
+    suspend fun getMemberById(id: Long): FamilyMember?
 
     @Query("SELECT * FROM transactionentity")
     suspend fun getAllTransactions(): List<TransactionEntity>
 
+    @Query("SELECT * FROM transactionentity WHERE id = :id LIMIT 1")
+    suspend fun getTransactionById(id: Long): TransactionEntity?
+
     @Query("SELECT * FROM recurringpayment")
     suspend fun getAllRecurringPayments(): List<RecurringPayment>
+
+    @Query("SELECT * FROM recurringpayment WHERE id = :id LIMIT 1")
+    suspend fun getRecurringPaymentById(id: Long): RecurringPayment?
 
     @Query("SELECT * FROM collaborationinvite")
     suspend fun getAllInvites(): List<CollaborationInvite>
 
+    @Query("SELECT * FROM collaborationinvite WHERE id = :id LIMIT 1")
+    suspend fun getInviteById(id: Long): CollaborationInvite?
+
     @Query("SELECT * FROM categorylimit")
     suspend fun getAllLimits(): List<CategoryLimit>
+
+    @Query("SELECT * FROM categorylimit WHERE id = :id LIMIT 1")
+    suspend fun getLimitById(id: Long): CategoryLimit?
+
+    @Query("SELECT * FROM syncchangelog WHERE updatedAtEpochMillis > :since ORDER BY updatedAtEpochMillis ASC")
+    suspend fun getChangeLogsSince(since: Long): List<SyncChangeLog>
+
+    @Query("SELECT * FROM syncstate WHERE id = 1 LIMIT 1")
+    suspend fun getSyncState(): SyncState?
 
     @Query(
         """
