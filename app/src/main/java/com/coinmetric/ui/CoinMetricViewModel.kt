@@ -239,6 +239,43 @@ class CoinMetricViewModel : ViewModel() {
                 ),
             ) + current.pendingInvites,
         )
+        enqueueSyncChanges(1)
+    }
+
+    fun updateInviteStatus(email: String, newStatus: String) {
+        val current = _settings.value
+        val currentInvite = current.pendingInvites.firstOrNull { it.email.equals(email, ignoreCase = true) }
+
+        if (currentInvite == null) {
+            _settings.value = current.copy(
+                inviteError = "Приглашение не найдено",
+                inviteSuccessMessage = null,
+            )
+            return
+        }
+
+        if (currentInvite.status != "Ожидает принятия") {
+            _settings.value = current.copy(
+                inviteError = "Статус уже обновлён",
+                inviteSuccessMessage = null,
+            )
+            return
+        }
+
+        val updatedInvites = current.pendingInvites.map { invite ->
+            if (invite.email.equals(email, ignoreCase = true)) {
+                invite.copy(status = newStatus)
+            } else {
+                invite
+            }
+        }
+
+        _settings.value = current.copy(
+            pendingInvites = updatedInvites,
+            inviteError = null,
+            inviteSuccessMessage = "Статус приглашения обновлён: $newStatus",
+        )
+        enqueueSyncChanges(1)
     }
 
     private fun enqueueSyncChanges(itemsCount: Int) {
