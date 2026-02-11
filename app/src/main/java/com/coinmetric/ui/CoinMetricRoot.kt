@@ -528,7 +528,32 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                     Text("Тема и синхронизация", fontWeight = FontWeight.SemiBold)
                     SettingRow("Тёмная тема", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
                     SettingRow("Синхронизация Google", settings.googleSyncEnabled) { vm.setGoogleSync(it) }
+                    SettingRow("Офлайн-режим", settings.isOfflineMode) { vm.setOfflineMode(it) }
                     SettingRow("Показывать подсказки", settings.showOnboarding) { vm.setOnboardingVisible(it) }
+
+                    val syncStatus = when {
+                        settings.isSyncInProgress -> "Синхронизация выполняется..."
+                        settings.syncError != null -> settings.syncError
+                        settings.pendingSyncItems > 0 -> "Ожидают отправки: ${settings.pendingSyncItems}"
+                        settings.lastSyncTimeLabel != null -> "Последняя синхронизация: ${settings.lastSyncTimeLabel}"
+                        else -> "Локальная база готова к работе офлайн"
+                    }
+
+                    Text(
+                        text = syncStatus,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (settings.syncError != null) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+
+                    if (settings.syncError != null) {
+                        Button(onClick = vm::retrySync, modifier = Modifier.fillMaxWidth()) {
+                            Text("Повторить синхронизацию")
+                        }
+                    }
                 }
             }
         }
