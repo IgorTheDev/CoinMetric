@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -73,6 +74,8 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
             categorySpend = finance.categorySpend,
             monthCategorySpend = finance.monthCategorySpend,
             limitProgress = buildLimitProgress(core, finance),
+            weeklyReport = buildWeeklyReport(finance.transactions, core.categories),
+            monthlyReport = buildMonthlyReport(finance.transactions, core.categories),
             totalIncome = finance.totalIncome,
             totalExpense = finance.totalExpense,
         )
@@ -166,6 +169,96 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
         }.sortedByDescending { it.progress }
     }
 
+    private fun buildWeeklyReport(
+        transactions: List<TransactionEntity>,
+        categories: List<Category>,
+    ): BudgetPeriodReport {
+        val now = System.currentTimeMillis()
+        val startCurrent = startOfCurrentWeek(now)
+        val duration = now - startCurrent
+        val startPrevious = startCurrent - duration
+        val previousStats = calculateStats(transactions, categories, startPrevious, startCurrent)
+        val currentStats = calculateStats(transactions, categories, startCurrent, now)
+        return BudgetPeriodReport(
+            title = "Неделя",
+            income = currentStats.income,
+            expense = currentStats.expense,
+            topExpenseCategory = currentStats.topCategory,
+            expenseTrendPercent = calculateTrend(currentStats.expense, previousStats.expense),
+        )
+    }
+
+    private fun buildMonthlyReport(
+        transactions: List<TransactionEntity>,
+        categories: List<Category>,
+    ): BudgetPeriodReport {
+        val now = System.currentTimeMillis()
+        val startCurrent = startOfCurrentMonth(now)
+        val duration = now - startCurrent
+        val startPrevious = startCurrent - duration
+        val previousStats = calculateStats(transactions, categories, startPrevious, startCurrent)
+        val currentStats = calculateStats(transactions, categories, startCurrent, now)
+        return BudgetPeriodReport(
+            title = "Месяц",
+            income = currentStats.income,
+            expense = currentStats.expense,
+            topExpenseCategory = currentStats.topCategory,
+            expenseTrendPercent = calculateTrend(currentStats.expense, previousStats.expense),
+        )
+    }
+
+    private fun calculateStats(
+        transactions: List<TransactionEntity>,
+        categories: List<Category>,
+        startEpochMillis: Long,
+        endEpochMillis: Long,
+    ): PeriodStats {
+        val periodTransactions = transactions.filter { it.dateEpochMillis in startEpochMillis until endEpochMillis }
+        val income = periodTransactions.filter { it.isIncome }.sumOf { it.amount }
+        val expenses = periodTransactions.filterNot { it.isIncome }
+        val expense = expenses.sumOf { it.amount }
+        val categoryNamesById = categories.associate { it.id to it.name }
+        val topCategory = expenses
+            .groupBy { it.categoryId }
+            .maxByOrNull { (_, txs) -> txs.sumOf { it.amount } }
+            ?.let { (categoryId, _) ->
+                categoryId?.let { categoryNamesById[it] } ?: "Без категории"
+            } ?: "Нет расходов"
+
+        return PeriodStats(income = income, expense = expense, topCategory = topCategory)
+    }
+
+    private fun calculateTrend(currentExpense: Double, previousExpense: Double): Double? {
+        if (previousExpense <= 0.0) return null
+        return ((currentExpense - previousExpense) / previousExpense) * 100
+    }
+
+    private fun startOfCurrentWeek(now: Long): Long {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = now
+            firstDayOfWeek = Calendar.MONDAY
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            val shift = (get(Calendar.DAY_OF_WEEK) - firstDayOfWeek + 7) % 7
+            add(Calendar.DAY_OF_MONTH, -shift)
+        }
+        return calendar.timeInMillis
+    }
+
+    private fun startOfCurrentMonth(now: Long): Long {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return calendar.timeInMillis
+    }
+
     private fun currentMonthKey(): String = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
 
     private fun evaluateExpression(expression: String): Double {
@@ -206,8 +299,24 @@ data class UiState(
     val categorySpend: List<CategorySpendRow> = emptyList(),
     val monthCategorySpend: List<CategoryMonthSpendRow> = emptyList(),
     val limitProgress: List<CategoryLimitProgress> = emptyList(),
+    val weeklyReport: BudgetPeriodReport = BudgetPeriodReport(title = "Неделя"),
+    val monthlyReport: BudgetPeriodReport = BudgetPeriodReport(title = "Месяц"),
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
+)
+
+data class BudgetPeriodReport(
+    val title: String,
+    val income: Double = 0.0,
+    val expense: Double = 0.0,
+    val topExpenseCategory: String = "Нет расходов",
+    val expenseTrendPercent: Double? = null,
+)
+
+private data class PeriodStats(
+    val income: Double,
+    val expense: Double,
+    val topCategory: String,
 )
 
 object ExpressionCalculator {
