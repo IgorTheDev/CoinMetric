@@ -59,6 +59,17 @@ data class SettingsState(
     val isSyncInProgress: Boolean = false,
     val syncError: String? = null,
     val lastSyncTimeLabel: String? = null,
+    val inviteEmail: String = "",
+    val inviteRole: String = "editor",
+    val inviteError: String? = null,
+    val inviteSuccessMessage: String? = null,
+    val pendingInvites: List<FamilyInviteUiModel> = emptyList(),
+)
+
+data class FamilyInviteUiModel(
+    val email: String,
+    val role: String,
+    val status: String,
 )
 
 class CoinMetricViewModel : ViewModel() {
@@ -177,6 +188,57 @@ class CoinMetricViewModel : ViewModel() {
 
     fun setOnboardingVisible(enabled: Boolean) {
         _settings.value = _settings.value.copy(showOnboarding = enabled)
+    }
+
+    fun updateInviteEmail(value: String) {
+        _settings.value = _settings.value.copy(
+            inviteEmail = value,
+            inviteError = null,
+            inviteSuccessMessage = null,
+        )
+    }
+
+    fun updateInviteRole(role: String) {
+        _settings.value = _settings.value.copy(
+            inviteRole = role,
+            inviteError = null,
+            inviteSuccessMessage = null,
+        )
+    }
+
+    fun sendFamilyInvite() {
+        val current = _settings.value
+        val email = current.inviteEmail.trim()
+        val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$".toRegex()
+
+        if (email.isBlank() || !email.matches(emailRegex)) {
+            _settings.value = current.copy(
+                inviteError = "Введите корректный email участника",
+                inviteSuccessMessage = null,
+            )
+            return
+        }
+
+        if (current.pendingInvites.any { it.email.equals(email, ignoreCase = true) }) {
+            _settings.value = current.copy(
+                inviteError = "Приглашение для этого email уже отправлено",
+                inviteSuccessMessage = null,
+            )
+            return
+        }
+
+        _settings.value = current.copy(
+            inviteEmail = "",
+            inviteError = null,
+            inviteSuccessMessage = "Приглашение отправлено: $email",
+            pendingInvites = listOf(
+                FamilyInviteUiModel(
+                    email = email,
+                    role = current.inviteRole,
+                    status = "Ожидает принятия",
+                ),
+            ) + current.pendingInvites,
+        )
     }
 
     private fun enqueueSyncChanges(itemsCount: Int) {

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
@@ -26,6 +27,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -565,8 +567,64 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                         "Пригласите участника семьи, чтобы совместно вести бюджет и видеть общие лимиты.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Button(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-                        Text("Пригласить участника")
+                    OutlinedTextField(
+                        value = settings.inviteEmail,
+                        onValueChange = vm::updateInviteEmail,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Email участника") },
+                        isError = settings.inviteError != null,
+                        singleLine = true,
+                        supportingText = {
+                            settings.inviteError?.let { Text(it) }
+                        },
+                    )
+                    Text("Роль доступа", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = settings.inviteRole == "viewer",
+                            onClick = { vm.updateInviteRole("viewer") },
+                            label = { Text("Просмотр") },
+                        )
+                        FilterChip(
+                            selected = settings.inviteRole == "editor",
+                            onClick = { vm.updateInviteRole("editor") },
+                            label = { Text("Редактор") },
+                        )
+                    }
+                    Button(onClick = vm::sendFamilyInvite, modifier = Modifier.fillMaxWidth()) {
+                        Text("Отправить приглашение")
+                    }
+                    settings.inviteSuccessMessage?.let { successText ->
+                        Text(
+                            successText,
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+
+                    if (settings.pendingInvites.isNotEmpty()) {
+                        Text("Отправленные приглашения", style = MaterialTheme.typography.labelLarge)
+                        settings.pendingInvites.forEach { invite ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(invite.email)
+                                    Text(
+                                        "Роль: ${invite.role} · ${invite.status}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(MaterialTheme.colorScheme.tertiary),
+                                )
+                            }
+                        }
                     }
                 }
             }
