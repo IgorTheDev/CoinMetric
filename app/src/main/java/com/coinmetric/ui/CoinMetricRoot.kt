@@ -605,24 +605,45 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                     if (settings.pendingInvites.isNotEmpty()) {
                         Text("Отправленные приглашения", style = MaterialTheme.typography.labelLarge)
                         settings.pendingInvites.forEach { invite ->
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(invite.email)
-                                    Text(
-                                        "Роль: ${invite.role} · ${invite.status}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(invite.email)
+                                        Text(
+                                            "Роль: ${invite.role} · ${invite.status}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(
+                                                if (invite.status == "Ожидает принятия") {
+                                                    MaterialTheme.colorScheme.tertiary
+                                                } else {
+                                                    MaterialTheme.colorScheme.primary
+                                                },
+                                            ),
                                     )
                                 }
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .background(MaterialTheme.colorScheme.tertiary),
-                                )
+                                if (invite.status == "Ожидает принятия") {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(onClick = { vm.updateInviteStatus(invite.email, "Принято") }) {
+                                            Text("Принять")
+                                        }
+                                        Button(onClick = { vm.updateInviteStatus(invite.email, "Отклонено") }) {
+                                            Text("Отклонить")
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
