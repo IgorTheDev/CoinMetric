@@ -54,7 +54,7 @@ fun CoinMetricRoot() {
         },
     ) { padding ->
         when (tab) {
-            0 -> DashboardScreen(state, Modifier.padding(padding))
+            0 -> DashboardScreen(vm, state, Modifier.padding(padding))
             1 -> TransactionsScreen(vm, state, Modifier.padding(padding))
             2 -> CalendarScreen(vm, state, Modifier.padding(padding))
             3 -> FamilyScreen(vm, state, Modifier.padding(padding))
@@ -64,7 +64,8 @@ fun CoinMetricRoot() {
 }
 
 @Composable
-private fun DashboardScreen(state: UiState, modifier: Modifier = Modifier) {
+private fun DashboardScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modifier = Modifier) {
+    var limitValue by remember { mutableStateOf("") }
     LazyColumn(modifier = modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Card(Modifier.fillMaxWidth()) {
@@ -72,6 +73,24 @@ private fun DashboardScreen(state: UiState, modifier: Modifier = Modifier) {
                     Text("Доходы: ${"%.2f".format(state.totalIncome)} ₽")
                     Text("Расходы: ${"%.2f".format(state.totalExpense)} ₽")
                     Text("Баланс: ${"%.2f".format(state.totalIncome - state.totalExpense)} ₽")
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Лимит категории на текущий месяц", style = MaterialTheme.typography.titleMedium)
+                    TextField(
+                        value = limitValue,
+                        onValueChange = { limitValue = it },
+                        label = { Text("Лимит для категории ${state.categories.firstOrNull()?.name ?: "—"}") },
+                    )
+                    Button(onClick = {
+                        val categoryId = state.categories.firstOrNull()?.id ?: return@Button
+                        val limit = limitValue.toDoubleOrNull() ?: return@Button
+                        vm.addCategoryLimit(categoryId, limit)
+                        limitValue = ""
+                    }) { Text("Сохранить лимит") }
                 }
             }
         }
@@ -144,6 +163,7 @@ private fun CalendarScreen(vm: CoinMetricViewModel, state: UiState, modifier: Mo
 private fun FamilyScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modifier = Modifier) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var inviteEmail by remember { mutableStateOf("") }
     Column(modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Семейный доступ")
         TextField(value = name, onValueChange = { name = it }, label = { Text("Имя") })
@@ -156,6 +176,15 @@ private fun FamilyScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modi
             }
         }) { Text("Добавить участника") }
 
+        TextField(value = inviteEmail, onValueChange = { inviteEmail = it }, label = { Text("Email для приглашения") })
+        Button(onClick = {
+            if (inviteEmail.isNotBlank()) {
+                vm.sendInvite(inviteEmail, name.ifBlank { "Владелец бюджета" })
+                inviteEmail = ""
+            }
+        }) { Text("Отправить приглашение на совместное редактирование") }
+
+        Text("Участники")
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(state.members) {
                 Card(Modifier.fillMaxWidth()) {
@@ -163,6 +192,20 @@ private fun FamilyScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modi
                         Text(it.name)
                         Text(it.email)
                         Text("Роль: ${it.role}")
+                    }
+                }
+            }
+            items(state.invites) { invite ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Приглашение: ${invite.email}")
+                        Text("Статус: ${invite.status}")
+                        if (invite.status == "pending") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { vm.acceptInvite(invite) }) { Text("Принять") }
+                                Button(onClick = { vm.declineInvite(invite) }) { Text("Отклонить") }
+                            }
+                        }
                     }
                 }
             }

@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import com.coinmetric.data.model.Category
 import com.coinmetric.data.model.CategoryLimit
 import com.coinmetric.data.model.FamilyMember
+import com.coinmetric.data.model.CollaborationInvite
 import com.coinmetric.data.model.RecurringPayment
 import com.coinmetric.data.model.TransactionEntity
 
@@ -17,8 +18,9 @@ import com.coinmetric.data.model.TransactionEntity
         CategoryLimit::class,
         TransactionEntity::class,
         RecurringPayment::class,
+        CollaborationInvite::class,
     ],
-    version = 1,
+    version = 2,
 )
 abstract class CoinMetricDatabase : RoomDatabase() {
     abstract fun dao(): CoinMetricDao

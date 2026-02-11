@@ -3,9 +3,11 @@ package com.coinmetric.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.coinmetric.data.local.CoinMetricDatabase
 import com.coinmetric.data.local.CategorySpendRow
+import com.coinmetric.data.local.CoinMetricDatabase
 import com.coinmetric.data.model.Category
+import com.coinmetric.data.model.CategoryLimit
+import com.coinmetric.data.model.CollaborationInvite
 import com.coinmetric.data.model.FamilyMember
 import com.coinmetric.data.model.RecurringPayment
 import com.coinmetric.data.model.TransactionEntity
@@ -21,19 +23,24 @@ import java.util.Locale
 
 class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = BudgetRepository(CoinMetricDatabase.get(app).dao())
+    private val notificationHelper = LimitNotificationHelper(app)
 
     val state: StateFlow<UiState> = combine(
         repository.categories(),
         repository.members(),
+        repository.invites(),
+        repository.limits(),
         repository.recurringPayments(),
         repository.transactions(),
         repository.categorySpend(),
         repository.income(),
         repository.expenses(),
-    ) { categories, members, recurring, transactions, spend, income, expense ->
+    ) { categories, members, invites, limits, recurring, transactions, spend, income, expense ->
         UiState(
             categories = categories,
             members = members,
+            invites = invites,
+            limits = limits,
             recurringPayments = recurring,
             transactions = transactions,
             categorySpend = spend,
@@ -58,6 +65,23 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
         repository.addMember(name, email, role)
     }
 
+    fun sendInvite(email: String, inviterName: String) = viewModelScope.launch {
+        repository.sendInvite(email, inviterName)
+    }
+
+    fun acceptInvite(invite: CollaborationInvite) = viewModelScope.launch {
+        repository.setInviteStatus(invite, "accepted")
+        repository.addMember(invite.email.substringBefore('@'), invite.email, invite.role)
+    }
+
+    fun declineInvite(invite: CollaborationInvite) = viewModelScope.launch {
+        repository.setInviteStatus(invite, "declined")
+    }
+
+    fun addCategoryLimit(categoryId: Long, monthlyLimit: Double) = viewModelScope.launch {
+        repository.addCategoryLimit(categoryId, monthlyLimit, currentMonthKey())
+    }
+
     fun addRecurring(title: String, amount: Double, day: Int) = viewModelScope.launch {
         repository.addRecurring(title, amount, day)
     }
@@ -67,8 +91,23 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
             val amount = evaluateExpression(expression)
             if (amount > 0.0) {
                 repository.addTransaction(amount, note, categoryId, memberId, System.currentTimeMillis(), isIncome)
+                if (!isIncome && categoryId != null) {
+                    checkCategoryLimit(categoryId)
+                }
             }
         }
+
+    private suspend fun checkCategoryLimit(categoryId: Long) {
+        val monthKey = currentMonthKey()
+        val limit = state.value.limits.firstOrNull { it.categoryId == categoryId && it.monthKey == monthKey } ?: return
+        val spent = repository.getMonthlyCategoryExpense(categoryId, monthKey)
+        if (spent > limit.monthlyLimit) {
+            val categoryName = state.value.categories.firstOrNull { it.id == categoryId }?.name ?: "Категория"
+            notificationHelper.notifyLimitExceeded(categoryName, spent, limit.monthlyLimit)
+        }
+    }
+
+    private fun currentMonthKey(): String = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
 
     private fun evaluateExpression(expression: String): Double {
         return runCatching { ExpressionCalculator.eval(expression) }.getOrDefault(0.0)
@@ -81,6 +120,8 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
 data class UiState(
     val categories: List<Category> = emptyList(),
     val members: List<FamilyMember> = emptyList(),
+    val invites: List<CollaborationInvite> = emptyList(),
+    val limits: List<CategoryLimit> = emptyList(),
     val recurringPayments: List<RecurringPayment> = emptyList(),
     val transactions: List<TransactionEntity> = emptyList(),
     val categorySpend: List<CategorySpendRow> = emptyList(),
