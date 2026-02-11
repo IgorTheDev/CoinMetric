@@ -29,6 +29,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -184,6 +187,11 @@ private fun HeaderTitle(route: String, onCancelAdd: () -> Unit) {
                 IconButton(onClick = onCancelAdd) {
                     Text("Отмена")
                 }
+            }
+        },
+        actions = {
+            if (route == Screen.Add.route) {
+                Spacer(Modifier.widthIn(min = 64.dp))
             }
         },
     )
@@ -357,8 +365,9 @@ private fun AnalyticsScreen() {
 @Composable
 private fun CalendarScreen(vm: CoinMetricViewModel) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
-    val groupedTransactions = state.latestTransactions.groupBy {
-        it.substringAfterLast("· ").trim()
+    val groupedTransactions = state.recentTransactions.groupBy { it.date }
+    var selectedDate by remember(groupedTransactions.keys) {
+        mutableStateOf(groupedTransactions.keys.firstOrNull())
     }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -377,8 +386,26 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
                         Text("Нет операций на выбранную дату")
                     } else {
                         groupedTransactions.forEach { (date, items) ->
-                            Text(date, fontWeight = FontWeight.Medium)
-                            items.forEach { op -> Text(op) }
+                            Button(onClick = { selectedDate = date }) {
+                                Text("$date (${items.size})")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Выбранная дата", fontWeight = FontWeight.SemiBold)
+                    val selectedItems = selectedDate?.let(groupedTransactions::get).orEmpty()
+                    if (selectedDate == null || selectedItems.isEmpty()) {
+                        Text("Выберите дату, чтобы увидеть операции")
+                    } else {
+                        Text(selectedDate.orEmpty(), fontWeight = FontWeight.Medium)
+                        selectedItems.forEach { tx ->
+                            val sign = if (tx.amount >= 0) "+" else "-"
+                            Text("$sign${kotlin.math.abs(tx.amount)} ₽ · ${tx.title}")
                             Spacer(Modifier.height(4.dp))
                         }
                     }

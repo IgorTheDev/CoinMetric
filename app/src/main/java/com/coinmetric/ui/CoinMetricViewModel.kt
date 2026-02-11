@@ -21,6 +21,13 @@ data class DashboardState(
     val avgDailyExpense: Int = 2_940,
     val expenseTrendText: String = "-12% к прошлой неделе",
     val latestTransactions: List<String> = emptyList(),
+    val recentTransactions: List<TransactionUiModel> = emptyList(),
+)
+
+data class TransactionUiModel(
+    val title: String,
+    val amount: Int,
+    val date: String,
 )
 
 data class AddTransactionState(
@@ -109,6 +116,13 @@ class CoinMetricViewModel : ViewModel() {
             balance = totalIncome - totalExpense,
             income = totalIncome,
             expense = totalExpense,
+            recentTransactions = transactions.take(5).map { tx ->
+                TransactionUiModel(
+                    title = tx.title,
+                    amount = tx.amount,
+                    date = tx.date,
+                )
+            },
             latestTransactions = transactions.take(5).map { tx ->
                 val sign = if (tx.amount >= 0) "+" else "-"
                 "$sign${kotlin.math.abs(tx.amount)} ₽ · ${tx.title} · ${tx.date}"
