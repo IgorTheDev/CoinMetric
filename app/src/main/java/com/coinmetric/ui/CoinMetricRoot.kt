@@ -206,8 +206,28 @@ private fun HeaderTitle(route: String, onCancelAdd: () -> Unit) {
 @Composable
 private fun DashboardScreen(vm: CoinMetricViewModel) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (settings.showOnboarding) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Быстрый старт", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("1) Добавьте первую операцию через кнопку «Добавить».\n2) Укажите лимиты и следите за прогрессом.\n3) Включите семейный доступ в настройках для совместного бюджета.")
+                        Button(
+                            onClick = vm::dismissOnboarding,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Понятно")
+                        }
+                    }
+                }
+            }
+        }
         if (state.isLoading) {
             item {
                 Card(Modifier.fillMaxWidth()) {
@@ -508,6 +528,7 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                     Text("Тема и синхронизация", fontWeight = FontWeight.SemiBold)
                     SettingRow("Тёмная тема", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
                     SettingRow("Синхронизация Google", settings.googleSyncEnabled) { vm.setGoogleSync(it) }
+                    SettingRow("Показывать подсказки", settings.showOnboarding) { vm.setOnboardingVisible(it) }
                 }
             }
         }

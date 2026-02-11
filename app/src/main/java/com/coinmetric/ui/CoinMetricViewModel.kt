@@ -50,6 +50,7 @@ data class AddTransactionState(
 data class SettingsState(
     val darkThemeEnabled: Boolean = false,
     val googleSyncEnabled: Boolean = true,
+    val showOnboarding: Boolean = true,
 )
 
 class CoinMetricViewModel : ViewModel() {
@@ -139,6 +140,14 @@ class CoinMetricViewModel : ViewModel() {
 
     fun setGoogleSync(enabled: Boolean) {
         _settings.value = _settings.value.copy(googleSyncEnabled = enabled)
+    }
+
+    fun dismissOnboarding() {
+        _settings.value = _settings.value.copy(showOnboarding = false)
+    }
+
+    fun setOnboardingVisible(enabled: Boolean) {
+        _settings.value = _settings.value.copy(showOnboarding = enabled)
     }
 
     private fun buildDashboardState(isLoading: Boolean = true): DashboardState {
