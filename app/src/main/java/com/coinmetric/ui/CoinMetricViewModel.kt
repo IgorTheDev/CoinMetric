@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private data class SampleTransaction(
     val title: String,
@@ -51,6 +54,11 @@ data class SettingsState(
     val darkThemeEnabled: Boolean = false,
     val googleSyncEnabled: Boolean = true,
     val showOnboarding: Boolean = true,
+    val isOfflineMode: Boolean = false,
+    val pendingSyncItems: Int = 0,
+    val isSyncInProgress: Boolean = false,
+    val syncError: String? = null,
+    val lastSyncTimeLabel: String? = null,
 )
 
 class CoinMetricViewModel : ViewModel() {
@@ -130,6 +138,7 @@ class CoinMetricViewModel : ViewModel() {
         )
 
         _dashboard.value = buildDashboardState(isLoading = false)
+        enqueueSyncChanges(1)
         _addState.value = AddTransactionState(successMessage = "Операция сохранена")
         onSuccess()
     }
@@ -139,7 +148,27 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setGoogleSync(enabled: Boolean) {
-        _settings.value = _settings.value.copy(googleSyncEnabled = enabled)
+        _settings.value = _settings.value.copy(
+            googleSyncEnabled = enabled,
+            syncError = if (enabled) _settings.value.syncError else null,
+        )
+        if (enabled) {
+            processSyncQueue()
+        }
+    }
+
+    fun setOfflineMode(enabled: Boolean) {
+        _settings.value = _settings.value.copy(
+            isOfflineMode = enabled,
+            syncError = if (enabled) "Нет подключения. Данные сохранены локально и ждут синхронизации." else null,
+        )
+        if (!enabled) {
+            processSyncQueue()
+        }
+    }
+
+    fun retrySync() {
+        processSyncQueue()
     }
 
     fun dismissOnboarding() {
@@ -148,6 +177,48 @@ class CoinMetricViewModel : ViewModel() {
 
     fun setOnboardingVisible(enabled: Boolean) {
         _settings.value = _settings.value.copy(showOnboarding = enabled)
+    }
+
+    private fun enqueueSyncChanges(itemsCount: Int) {
+        val current = _settings.value
+        _settings.value = current.copy(
+            pendingSyncItems = current.pendingSyncItems + itemsCount,
+            syncError = if (current.googleSyncEnabled && current.isOfflineMode) {
+                "Нет подключения. Данные сохранены локально и ждут синхронизации."
+            } else {
+                current.syncError
+            },
+        )
+        processSyncQueue()
+    }
+
+    private fun processSyncQueue() {
+        val current = _settings.value
+        if (!current.googleSyncEnabled || current.pendingSyncItems == 0 || current.isSyncInProgress) {
+            return
+        }
+        if (current.isOfflineMode) {
+            _settings.value = current.copy(
+                syncError = "Нет подключения. Данные сохранены локально и ждут синхронизации.",
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(isSyncInProgress = true, syncError = null)
+            delay(450)
+            _settings.value = _settings.value.copy(
+                isSyncInProgress = false,
+                pendingSyncItems = 0,
+                lastSyncTimeLabel = formatSyncTime(System.currentTimeMillis()),
+                syncError = null,
+            )
+        }
+    }
+
+    private fun formatSyncTime(epochMillis: Long): String {
+        val formatter = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("ru", "RU"))
+        return formatter.format(Date(epochMillis))
     }
 
     private fun buildDashboardState(isLoading: Boolean = true): DashboardState {
