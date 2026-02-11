@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +96,28 @@ private fun DashboardScreen(vm: CoinMetricViewModel, state: UiState, modifier: M
                 }
             }
         }
+
+        if (state.limitProgress.isNotEmpty()) {
+            item {
+                Text("Траты по лимитам в текущем месяце", style = MaterialTheme.typography.titleMedium)
+            }
+            items(state.limitProgress) { progress ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(progress.categoryName)
+                            Text(progress.status)
+                        }
+                        LinearProgressIndicator(
+                            progress = { min(1f, progress.progress.coerceAtLeast(0f)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text("${"%.2f".format(progress.spent)} ₽ из ${"%.2f".format(progress.limit)} ₽")
+                    }
+                }
+            }
+        }
+
         item { Text("Аналитика по категориям", style = MaterialTheme.typography.titleMedium) }
         items(state.categorySpend) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

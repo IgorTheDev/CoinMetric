@@ -3,6 +3,7 @@ package com.coinmetric.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.coinmetric.data.local.CategoryMonthSpendRow
 import com.coinmetric.data.local.CategorySpendRow
 import com.coinmetric.data.local.CoinMetricDatabase
 import com.coinmetric.data.model.Category
@@ -24,6 +25,7 @@ import java.util.Locale
 class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = BudgetRepository(CoinMetricDatabase.get(app).dao())
     private val notificationHelper = LimitNotificationHelper(app)
+    private val notifiedThresholdByCategory = mutableMapOf<Long, LimitThreshold>()
 
     private data class CoreState(
         val categories: List<Category>,
@@ -36,6 +38,7 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
     private data class FinanceState(
         val transactions: List<TransactionEntity>,
         val categorySpend: List<CategorySpendRow>,
+        val monthCategorySpend: List<CategoryMonthSpendRow>,
         val totalIncome: Double,
         val totalExpense: Double,
     )
@@ -53,10 +56,11 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
         combine(
             repository.transactions(),
             repository.categorySpend(),
+            repository.monthCategorySpend(currentMonthKey()),
             repository.income(),
             repository.expenses(),
-        ) { transactions, spend, income, expense ->
-            FinanceState(transactions, spend, income, expense)
+        ) { transactions, spend, monthSpend, income, expense ->
+            FinanceState(transactions, spend, monthSpend, income, expense)
         },
     ) { core, finance ->
         UiState(
@@ -67,6 +71,8 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
             recurringPayments = core.recurringPayments,
             transactions = finance.transactions,
             categorySpend = finance.categorySpend,
+            monthCategorySpend = finance.monthCategorySpend,
+            limitProgress = buildLimitProgress(core, finance),
             totalIncome = finance.totalIncome,
             totalExpense = finance.totalExpense,
         )
@@ -124,10 +130,40 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
         val monthKey = currentMonthKey()
         val limit = state.value.limits.firstOrNull { it.categoryId == categoryId && it.monthKey == monthKey } ?: return
         val spent = repository.getMonthlyCategoryExpense(categoryId, monthKey)
-        if (spent > limit.monthlyLimit) {
-            val categoryName = state.value.categories.firstOrNull { it.id == categoryId }?.name ?: "Категория"
-            notificationHelper.notifyLimitExceeded(categoryName, spent, limit.monthlyLimit)
+        val categoryName = state.value.categories.firstOrNull { it.id == categoryId }?.name ?: "Категория"
+
+        val threshold = when {
+            spent > limit.monthlyLimit -> LimitThreshold.EXCEEDED
+            spent >= limit.monthlyLimit * 0.8 -> LimitThreshold.WARNING
+            else -> LimitThreshold.NONE
         }
+
+        val previousThreshold = notifiedThresholdByCategory[categoryId] ?: LimitThreshold.NONE
+        if (threshold <= previousThreshold) return
+
+        when (threshold) {
+            LimitThreshold.EXCEEDED -> notificationHelper.notifyLimitExceeded(categoryName, spent, limit.monthlyLimit)
+            LimitThreshold.WARNING -> notificationHelper.notifyLimitAlmostReached(categoryName, spent, limit.monthlyLimit)
+            LimitThreshold.NONE -> Unit
+        }
+        notifiedThresholdByCategory[categoryId] = threshold
+    }
+
+    private fun buildLimitProgress(core: CoreState, finance: FinanceState): List<CategoryLimitProgress> {
+        val monthKey = currentMonthKey()
+        val monthLimits = core.limits.filter { it.monthKey == monthKey }
+        val spendsByCategory = finance.monthCategorySpend.associateBy { it.categoryId }
+
+        return monthLimits.mapNotNull { limit ->
+            val category = core.categories.firstOrNull { it.id == limit.categoryId } ?: return@mapNotNull null
+            val spent = spendsByCategory[limit.categoryId]?.spent ?: 0.0
+            CategoryLimitProgress(
+                categoryId = category.id,
+                categoryName = category.name,
+                spent = spent,
+                limit = limit.monthlyLimit,
+            )
+        }.sortedByDescending { it.progress }
     }
 
     private fun currentMonthKey(): String = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
@@ -140,6 +176,26 @@ class CoinMetricViewModel(app: Application) : AndroidViewModel(app) {
         SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(epoch))
 }
 
+enum class LimitThreshold {
+    NONE,
+    WARNING,
+    EXCEEDED,
+}
+
+data class CategoryLimitProgress(
+    val categoryId: Long,
+    val categoryName: String,
+    val spent: Double,
+    val limit: Double,
+) {
+    val progress: Float = if (limit > 0) (spent / limit).toFloat() else 0f
+    val status: String = when {
+        spent > limit -> "Превышен"
+        spent >= limit * 0.8 -> "Близко к лимиту"
+        else -> "В пределах лимита"
+    }
+}
+
 data class UiState(
     val categories: List<Category> = emptyList(),
     val members: List<FamilyMember> = emptyList(),
@@ -148,6 +204,8 @@ data class UiState(
     val recurringPayments: List<RecurringPayment> = emptyList(),
     val transactions: List<TransactionEntity> = emptyList(),
     val categorySpend: List<CategorySpendRow> = emptyList(),
+    val monthCategorySpend: List<CategoryMonthSpendRow> = emptyList(),
+    val limitProgress: List<CategoryLimitProgress> = emptyList(),
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
 )

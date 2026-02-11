@@ -97,6 +97,19 @@ interface CoinMetricDao {
     )
     fun observeCategorySpend(): Flow<List<CategorySpendRow>>
 
+    @Query(
+        """
+        SELECT c.id as categoryId, c.name as category, IFNULL(SUM(t.amount), 0) as spent
+        FROM category c
+        LEFT JOIN transactionentity t ON t.categoryId = c.id
+            AND t.isIncome = 0
+            AND strftime('%Y-%m', t.dateEpochMillis / 1000, 'unixepoch', 'localtime') = :monthKey
+        GROUP BY c.id
+        ORDER BY c.name
+        """,
+    )
+    fun observeMonthCategorySpend(monthKey: String): Flow<List<CategoryMonthSpendRow>>
+
     @Query("SELECT IFNULL(SUM(amount), 0) FROM transactionentity WHERE isIncome = 1")
     fun observeTotalIncome(): Flow<Double>
 
@@ -115,6 +128,12 @@ interface CoinMetricDao {
 }
 
 data class CategorySpendRow(
+    val category: String,
+    val spent: Double,
+)
+
+data class CategoryMonthSpendRow(
+    val categoryId: Long,
     val category: String,
     val spent: Double,
 )

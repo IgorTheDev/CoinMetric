@@ -1,5 +1,6 @@
 package com.coinmetric.data.repository
 
+import com.coinmetric.data.local.CategoryMonthSpendRow
 import com.coinmetric.data.local.CategorySpendRow
 import com.coinmetric.data.local.CoinMetricDao
 import com.coinmetric.data.model.Category
@@ -18,6 +19,7 @@ class BudgetRepository(private val dao: CoinMetricDao) {
     fun recurringPayments(): Flow<List<RecurringPayment>> = dao.observeRecurringPayments()
     fun transactions(): Flow<List<TransactionEntity>> = dao.observeTransactions()
     fun categorySpend(): Flow<List<CategorySpendRow>> = dao.observeCategorySpend()
+    fun monthCategorySpend(monthKey: String): Flow<List<CategoryMonthSpendRow>> = dao.observeMonthCategorySpend(monthKey)
     fun income(): Flow<Double> = dao.observeTotalIncome()
     fun expenses(): Flow<Double> = dao.observeTotalExpense()
 
