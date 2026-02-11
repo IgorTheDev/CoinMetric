@@ -41,6 +41,8 @@ data class AddTransactionState(
     val category: String = "",
     val note: String = "",
     val isIncome: Boolean = false,
+    val amountHasError: Boolean = false,
+    val categoryHasError: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null,
 )
@@ -74,11 +76,21 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun updateAmount(value: String) {
-        _addState.value = _addState.value.copy(amount = value, error = null, successMessage = null)
+        _addState.value = _addState.value.copy(
+            amount = value,
+            amountHasError = false,
+            error = null,
+            successMessage = null,
+        )
     }
 
     fun updateCategory(value: String) {
-        _addState.value = _addState.value.copy(category = value, error = null, successMessage = null)
+        _addState.value = _addState.value.copy(
+            category = value,
+            categoryHasError = false,
+            error = null,
+            successMessage = null,
+        )
     }
 
     fun updateNote(value: String) {
@@ -92,8 +104,15 @@ class CoinMetricViewModel : ViewModel() {
     fun saveTransaction(onSuccess: () -> Unit) {
         val state = _addState.value
         val amountValue = state.amount.toIntOrNull()
-        if (amountValue == null || amountValue <= 0 || state.category.isBlank()) {
-            _addState.value = state.copy(error = "Заполните сумму и категорию", successMessage = null)
+        val invalidAmount = amountValue == null || amountValue <= 0
+        val invalidCategory = state.category.isBlank()
+        if (invalidAmount || invalidCategory) {
+            _addState.value = state.copy(
+                amountHasError = invalidAmount,
+                categoryHasError = invalidCategory,
+                error = "Заполните сумму и категорию",
+                successMessage = null,
+            )
             return
         }
 

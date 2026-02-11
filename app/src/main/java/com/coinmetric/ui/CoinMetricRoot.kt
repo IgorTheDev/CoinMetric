@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -287,9 +288,17 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 value = state.amount,
                 onValueChange = vm::updateAmount,
                 label = { Text("Сумма") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError = state.error != null,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Next,
+                ),
+                isError = state.amountHasError,
                 singleLine = true,
+                supportingText = {
+                    if (state.amountHasError) {
+                        Text("Введите сумму больше нуля")
+                    }
+                },
             )
         }
         item {
@@ -298,8 +307,14 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 value = state.category,
                 onValueChange = vm::updateCategory,
                 label = { Text("Категория") },
-                isError = state.error != null,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                isError = state.categoryHasError,
                 singleLine = true,
+                supportingText = {
+                    if (state.categoryHasError) {
+                        Text("Укажите категорию")
+                    }
+                },
             )
         }
         item {
@@ -308,6 +323,7 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 value = state.note,
                 onValueChange = vm::updateNote,
                 label = { Text("Заметка") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             )
         }
         item {
