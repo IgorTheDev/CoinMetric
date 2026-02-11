@@ -125,7 +125,7 @@ class CoinMetricViewModel : ViewModel() {
             },
             latestTransactions = transactions.take(5).map { tx ->
                 val sign = if (tx.amount >= 0) "+" else "-"
-                "$sign${kotlin.math.abs(tx.amount)} ₽ · ${tx.title} · ${tx.date}"
+                "$sign${kotlin.math.abs(tx.amount).toRubCurrency()} · ${tx.title} · ${tx.date}"
             },
         )
     }

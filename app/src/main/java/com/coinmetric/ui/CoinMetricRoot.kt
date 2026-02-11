@@ -33,9 +33,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -208,10 +210,10 @@ private fun DashboardScreen(vm: CoinMetricViewModel) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Общий баланс", style = MaterialTheme.typography.titleMedium)
-                    Text("${state.balance} ₽", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(state.balance.toRubCurrency(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Доход: ${state.income} ₽")
-                        Text("Расход: ${state.expense} ₽")
+                        Text("Доход: ${state.income.toRubCurrency()}")
+                        Text("Расход: ${state.expense.toRubCurrency()}")
                     }
                 }
             }
@@ -219,7 +221,7 @@ private fun DashboardScreen(vm: CoinMetricViewModel) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MetricCard("Лимиты", "${state.limitsUsedPercent}%", Modifier.weight(1f))
-                MetricCard("Ср. расход/день", "${state.avgDailyExpense} ₽", Modifier.weight(1f))
+                MetricCard("Ср. расход/день", state.avgDailyExpense.toRubCurrency(), Modifier.weight(1f))
             }
         }
         item {
@@ -269,6 +271,7 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 value = state.amount,
                 onValueChange = vm::updateAmount,
                 label = { Text("Сумма") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
             )
         }
@@ -407,7 +410,7 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
                         Text(selectedDate.orEmpty(), fontWeight = FontWeight.Medium)
                         selectedItems.forEach { tx ->
                             val sign = if (tx.amount >= 0) "+" else "-"
-                            Text("$sign${kotlin.math.abs(tx.amount)} ₽ · ${tx.title}")
+                            Text("$sign${kotlin.math.abs(tx.amount).toRubCurrency()} · ${tx.title}")
                             Spacer(Modifier.height(4.dp))
                         }
                     }
