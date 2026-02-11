@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -112,6 +113,7 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                     }
                 }
             },
+            floatingActionButtonPosition = FabPosition.Center,
         ) { padding ->
             MobileLayout(padding) {
                 NavHost(
