@@ -288,8 +288,11 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 onValueChange = vm::updateAmount,
                 label = { Text("Сумма") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError = state.error != null,
+                isError = state.amountError != null,
                 singleLine = true,
+                supportingText = {
+                    state.amountError?.let { Text(it) }
+                },
             )
         }
         item {
@@ -298,8 +301,11 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 value = state.category,
                 onValueChange = vm::updateCategory,
                 label = { Text("Категория") },
-                isError = state.error != null,
+                isError = state.categoryError != null,
                 singleLine = true,
+                supportingText = {
+                    state.categoryError?.let { Text(it) }
+                },
             )
         }
         item {
