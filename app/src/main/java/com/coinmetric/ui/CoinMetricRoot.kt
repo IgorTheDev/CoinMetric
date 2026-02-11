@@ -116,6 +116,13 @@ private fun DashboardScreen(vm: CoinMetricViewModel, state: UiState, modifier: M
                     }
                 }
             }
+        } else {
+            item {
+                EmptyStateCard(
+                    title = "Лимиты пока не настроены",
+                    message = "Добавьте лимит для категории выше, чтобы видеть прогресс трат и предупреждения о превышении.",
+                )
+            }
         }
 
         item {
@@ -129,11 +136,30 @@ private fun DashboardScreen(vm: CoinMetricViewModel, state: UiState, modifier: M
         }
 
         item { Text("Аналитика по категориям", style = MaterialTheme.typography.titleMedium) }
-        items(state.categorySpend) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(it.category)
-                Text("${"%.2f".format(it.spent)} ₽")
+        if (state.categorySpend.isEmpty()) {
+            item {
+                EmptyStateCard(
+                    title = "Нет данных для аналитики",
+                    message = "Добавьте несколько операций, и здесь появится распределение расходов по категориям.",
+                )
             }
+        } else {
+            items(state.categorySpend) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(it.category)
+                    Text("${"%.2f".format(it.spent)} ₽")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyStateCard(title: String, message: String) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(message, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -180,15 +206,22 @@ private fun TransactionsScreen(vm: CoinMetricViewModel, state: UiState, modifier
         }
 
         Text("Последние операции", style = MaterialTheme.typography.titleMedium)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(state.transactions.take(20)) { tx ->
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text(tx.note.ifBlank { "Без названия" })
-                            Text(vm.formatDate(tx.dateEpochMillis))
+        if (state.transactions.isEmpty()) {
+            EmptyStateCard(
+                title = "Пока нет операций",
+                message = "Добавьте первую транзакцию, чтобы начать отслеживать бюджет семьи.",
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(state.transactions.take(20)) { tx ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text(tx.note.ifBlank { "Без названия" })
+                                Text(vm.formatDate(tx.dateEpochMillis))
+                            }
+                            Text((if (tx.isIncome) "+" else "-") + "${"%.2f".format(tx.amount)} ₽")
                         }
-                        Text((if (tx.isIncome) "+" else "-") + "${"%.2f".format(tx.amount)} ₽")
                     }
                 }
             }
@@ -200,12 +233,22 @@ private fun TransactionsScreen(vm: CoinMetricViewModel, state: UiState, modifier
 private fun CalendarScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modifier = Modifier) {
     LazyColumn(modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { Text("Календарь трат") }
-        items(state.transactions.groupBy { vm.formatDate(it.dateEpochMillis) }.toList()) { (date, items) ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(10.dp)) {
-                    Text(date, style = MaterialTheme.typography.titleSmall)
-                    items.forEach {
-                        Text("• ${it.note.ifBlank { "Операция" }}: ${"%.2f".format(it.amount)} ₽")
+        val groupedTransactions = state.transactions.groupBy { vm.formatDate(it.dateEpochMillis) }.toList()
+        if (groupedTransactions.isEmpty()) {
+            item {
+                EmptyStateCard(
+                    title = "Календарь пока пуст",
+                    message = "После добавления транзакций они автоматически распределятся по датам.",
+                )
+            }
+        } else {
+            items(groupedTransactions) { (date, items) ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(10.dp)) {
+                        Text(date, style = MaterialTheme.typography.titleSmall)
+                        items.forEach {
+                            Text("• ${it.note.ifBlank { "Операция" }}: ${"%.2f".format(it.amount)} ₽")
+                        }
                     }
                 }
             }
@@ -239,25 +282,32 @@ private fun FamilyScreen(vm: CoinMetricViewModel, state: UiState, modifier: Modi
         }) { Text("Отправить приглашение на совместное редактирование") }
 
         Text("Участники")
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(state.members) {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(10.dp)) {
-                        Text(it.name)
-                        Text(it.email)
-                        Text("Роль: ${it.role}")
+        if (state.members.isEmpty() && state.invites.isEmpty()) {
+            EmptyStateCard(
+                title = "Семья ещё не добавлена",
+                message = "Добавьте участников вручную или отправьте приглашение по email для совместного бюджета.",
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(state.members) {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text(it.name)
+                            Text(it.email)
+                            Text("Роль: ${it.role}")
+                        }
                     }
                 }
-            }
-            items(state.invites) { invite ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Приглашение: ${invite.email}")
-                        Text("Статус: ${invite.status}")
-                        if (invite.status == "pending") {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { vm.acceptInvite(invite) }) { Text("Принять") }
-                                Button(onClick = { vm.declineInvite(invite) }) { Text("Отклонить") }
+                items(state.invites) { invite ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Приглашение: ${invite.email}")
+                            Text("Статус: ${invite.status}")
+                            if (invite.status == "pending") {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { vm.acceptInvite(invite) }) { Text("Принять") }
+                                    Button(onClick = { vm.declineInvite(invite) }) { Text("Отклонить") }
+                                }
                             }
                         }
                     }
@@ -289,11 +339,18 @@ private fun RecurringScreen(vm: CoinMetricViewModel, state: UiState, modifier: M
         }) { Text("Добавить") }
 
         Text("Список")
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(state.recurringPayments) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("${it.title} (${it.dayOfMonth} число)")
-                    Text("${"%.2f".format(it.amount)} ₽")
+        if (state.recurringPayments.isEmpty()) {
+            EmptyStateCard(
+                title = "Нет постоянных платежей",
+                message = "Добавьте регулярные расходы, чтобы не забывать о ежемесячных списаниях.",
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(state.recurringPayments) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("${it.title} (${it.dayOfMonth} число)")
+                        Text("${"%.2f".format(it.amount)} ₽")
+                    }
                 }
             }
         }
