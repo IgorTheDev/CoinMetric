@@ -19,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -49,16 +50,20 @@ private sealed class Screen(val route: String, val label: String) {
     data object Settings : Screen("/settings", "Настройки")
 }
 
+private data class HeaderConfig(
+    val title: String,
+    val subtitle: String? = null,
+)
+
 @Composable
 fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val destination = navBackStackEntry?.destination
 
-    val screens = listOf(
+    val navScreens = listOf(
         Screen.Dashboard,
         Screen.Calendar,
-        Screen.Add,
         Screen.Analytics,
         Screen.Settings,
     )
@@ -68,11 +73,14 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface),
         topBar = {
-            HeaderTitle(destination?.route ?: Screen.Dashboard.route)
+            HeaderTitle(
+                route = destination?.route ?: Screen.Dashboard.route,
+                onCancelAdd = { navController.navigateUp() },
+            )
         },
         bottomBar = {
             NavigationBar {
-                screens.forEach { screen ->
+                navScreens.forEach { screen ->
                     NavigationBarItem(
                         selected = destination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
@@ -92,7 +100,7 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate(Screen.Add.route) }) {
-                Text("+")
+                Text("Добавить")
             }
         },
     ) { padding ->
@@ -142,15 +150,36 @@ private fun MobileLayout(padding: PaddingValues, content: @Composable () -> Unit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HeaderTitle(route: String) {
-    val title = when (route) {
-        Screen.Calendar.route -> "Календарь"
-        Screen.Add.route -> "Добавление операции"
-        Screen.Analytics.route -> "Аналитика"
-        Screen.Settings.route -> "Настройки"
-        else -> "CoinMetric"
+private fun HeaderTitle(route: String, onCancelAdd: () -> Unit) {
+    val config = when (route) {
+        Screen.Calendar.route -> HeaderConfig("Календарь", "Операции по датам")
+        Screen.Add.route -> HeaderConfig("Добавление операции")
+        Screen.Analytics.route -> HeaderConfig("Аналитика", "Структура расходов и лимиты")
+        Screen.Settings.route -> HeaderConfig("Настройки", "Тема, синхронизация и доступ")
+        else -> HeaderConfig("CoinMetric", "Семейный финансовый обзор")
     }
-    CenterAlignedTopAppBar(title = { Text(title) })
+
+    CenterAlignedTopAppBar(
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(config.title)
+                config.subtitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        navigationIcon = {
+            if (route == Screen.Add.route) {
+                IconButton(onClick = onCancelAdd) {
+                    Text("Отмена")
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -211,6 +240,13 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
     val state by vm.addState.collectAsStateWithLifecycle()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
+            Text(
+                "Введите сумму, выберите категорию и сохраните операцию",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
                 value = state.amount,
@@ -264,6 +300,13 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
 private fun AnalyticsScreen() {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
+            Text(
+                "Краткая сводка распределения трат и статуса лимитов",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Распределение расходов", fontWeight = FontWeight.SemiBold)
@@ -292,6 +335,13 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
+            Text(
+                "История транзакций с группировкой по дате",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Календарь", fontWeight = FontWeight.SemiBold)
@@ -313,6 +363,13 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
 private fun SettingsScreen(vm: CoinMetricViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Text(
+                "Персонализация приложения и параметры семейного доступа",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
