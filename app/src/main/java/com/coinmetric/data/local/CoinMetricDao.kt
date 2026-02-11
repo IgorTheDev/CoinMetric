@@ -15,40 +15,40 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CoinMetricDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertCategory(category: Category)
+    suspend fun upsertCategory(category: Category): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertCategories(categories: List<Category>)
+    suspend fun upsertCategories(categories: List<Category>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertMember(member: FamilyMember)
+    suspend fun upsertMember(member: FamilyMember): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertMembers(members: List<FamilyMember>)
+    suspend fun upsertMembers(members: List<FamilyMember>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertLimit(limit: CategoryLimit)
+    suspend fun upsertLimit(limit: CategoryLimit): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertLimits(limits: List<CategoryLimit>)
+    suspend fun upsertLimits(limits: List<CategoryLimit>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertRecurringPayment(payment: RecurringPayment)
+    suspend fun upsertRecurringPayment(payment: RecurringPayment): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertRecurringPayments(payments: List<RecurringPayment>)
+    suspend fun upsertRecurringPayments(payments: List<RecurringPayment>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertTransaction(transaction: TransactionEntity)
+    suspend fun upsertTransaction(transaction: TransactionEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertTransactions(transactions: List<TransactionEntity>)
+    suspend fun upsertTransactions(transactions: List<TransactionEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertInvite(invite: CollaborationInvite)
+    suspend fun upsertInvite(invite: CollaborationInvite): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertInvites(invites: List<CollaborationInvite>)
+    suspend fun upsertInvites(invites: List<CollaborationInvite>): List<Long>
 
     @Query("SELECT * FROM category ORDER BY name")
     fun observeCategories(): Flow<List<Category>>
