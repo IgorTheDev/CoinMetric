@@ -32,6 +32,8 @@ data class TransactionUiModel(
     val title: String,
     val amount: Int,
     val date: String,
+    val category: String,
+    val income: Boolean,
 )
 
 data class AddTransactionState(
@@ -133,6 +135,8 @@ class CoinMetricViewModel : ViewModel() {
                     title = tx.title,
                     amount = tx.amount,
                     date = tx.date,
+                    category = tx.category,
+                    income = tx.income,
                 )
             },
             latestTransactions = transactions.take(5).map { tx ->

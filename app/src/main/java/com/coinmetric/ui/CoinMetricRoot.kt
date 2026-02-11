@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -133,7 +134,7 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                         AddScreen(vm) { navController.navigate(Screen.Dashboard.route) }
                     }
                     composable(Screen.Analytics.route) {
-                        AnalyticsScreen()
+                        AnalyticsScreen(vm)
                     }
                     composable(Screen.Settings.route) {
                         SettingsScreen(vm)
@@ -287,6 +288,7 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 onValueChange = vm::updateAmount,
                 label = { Text("Сумма") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = state.error != null,
                 singleLine = true,
             )
         }
@@ -296,6 +298,7 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 value = state.category,
                 onValueChange = vm::updateCategory,
                 label = { Text("Категория") },
+                isError = state.error != null,
                 singleLine = true,
             )
         }
@@ -332,19 +335,45 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
 }
 
 @Composable
-private fun AnalyticsScreen() {
-    val categoryDistribution = listOf(
-        "Еда" to 0.39f,
-        "Транспорт" to 0.22f,
-        "Развлечения" to 0.15f,
-    )
-    val limitsByCategory = listOf(
-        "Еда" to 0.78f,
-        "Транспорт" to 0.54f,
-        "Развлечения" to 0.42f,
-    )
+private fun AnalyticsScreen(vm: CoinMetricViewModel) {
+    val state by vm.dashboard.collectAsStateWithLifecycle()
+    val expensesByCategory = state.recentTransactions
+        .filterNot { it.income }
+        .groupBy { it.category }
+        .mapValues { (_, items) -> items.sumOf { kotlin.math.abs(it.amount) } }
+    val totalExpenses = expensesByCategory.values.sum().coerceAtLeast(1)
+
+    val categoryDistribution = expensesByCategory.entries
+        .sortedByDescending { it.value }
+        .map { (title, amount) ->
+            title to amount.toFloat() / totalExpenses
+        }
+
+    val limitsByCategory = mapOf(
+        "Еда" to 15_000,
+        "Транспорт" to 6_000,
+        "Развлечения" to 7_500,
+        "Досуг" to 5_000,
+    ).map { (title, limit) ->
+        val spent = expensesByCategory[title] ?: 0
+        title to (spent.toFloat() / limit).coerceIn(0f, 1f)
+    }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (state.isLoading) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+        }
         item {
             Text(
                 "Краткая сводка распределения трат и статуса лимитов",
@@ -356,8 +385,12 @@ private fun AnalyticsScreen() {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Распределение расходов", fontWeight = FontWeight.SemiBold)
-                    categoryDistribution.forEach { (title, percent) ->
-                        Text("$title — ${(percent * 100).toInt()}%")
+                    if (categoryDistribution.isEmpty()) {
+                        Text("Пока нет расходных операций для анализа")
+                    } else {
+                        categoryDistribution.forEach { (title, percent) ->
+                            Text("$title — ${(percent * 100).toInt()}%")
+                        }
                     }
                 }
             }
@@ -372,6 +405,8 @@ private fun AnalyticsScreen() {
                             LinearProgressIndicator(
                                 progress = { progress },
                                 modifier = Modifier.fillMaxWidth(),
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                color = if (progress >= 0.85f) MaterialTheme.colorScheme.error else Color.Unspecified,
                             )
                         }
                     }
