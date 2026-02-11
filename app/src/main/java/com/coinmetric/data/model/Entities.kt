@@ -90,3 +90,19 @@ data class CollaborationInvite(
     val createdAtEpochMillis: Long = System.currentTimeMillis(),
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
+
+@Entity(primaryKeys = ["entityType", "entityId"])
+data class SyncChangeLog(
+    val entityType: String,
+    val entityId: Long,
+    val updatedAtEpochMillis: Long,
+    val action: String,
+    val source: String,
+)
+
+@Entity
+data class SyncState(
+    @PrimaryKey val id: Int = 1,
+    val lastPulledAtEpochMillis: Long = 0,
+    val lastPushedAtEpochMillis: Long = 0,
+)
