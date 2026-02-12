@@ -367,4 +367,149 @@ class CoinMetricViewModelInviteTest {
         assertEquals(null, vm.limitAlertEvent.value)
     }
 
+    @Test
+    fun updateInviteStatus_withUppercaseEmail_updatesInvite() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("Case@Test.com")
+        vm.sendFamilyInvite()
+
+        vm.updateInviteStatus("CASE@test.com", "Принято")
+
+        assertEquals("Принято", vm.settings.value.pendingInvites.first().status)
+    }
+
+    @Test
+    fun updateInviteStatus_withInvalidStatus_returnsError() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("state@example.com")
+        vm.sendFamilyInvite()
+
+        vm.updateInviteStatus("state@example.com", "В обработке")
+
+        assertEquals("Некорректный статус приглашения", vm.settings.value.inviteError)
+    }
+
+    @Test
+    fun updateInviteStatus_toPendingStatus_returnsError() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("state@example.com")
+        vm.sendFamilyInvite()
+
+        vm.updateInviteStatus("state@example.com", "Ожидает принятия")
+
+        assertEquals("Некорректный статус приглашения", vm.settings.value.inviteError)
+    }
+
+    @Test
+    fun revokeFamilyInvite_normalizesEmailBeforeLookup() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("normalize@example.com")
+        vm.sendFamilyInvite()
+
+        vm.revokeFamilyInvite(" NORMALIZE@EXAMPLE.COM ")
+
+        assertTrue(vm.settings.value.pendingInvites.isEmpty())
+    }
+
+    @Test
+    fun updateInviteEmail_clearsInviteFeedback() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("bad-email")
+        vm.sendFamilyInvite()
+        vm.updateInviteEmail("good@example.com")
+
+        assertEquals(null, vm.settings.value.inviteError)
+        assertEquals(null, vm.settings.value.inviteSuccessMessage)
+    }
+
+    @Test
+    fun updateInviteRole_clearsInviteFeedback() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("member@example.com")
+        vm.sendFamilyInvite()
+        vm.updateInviteRole("viewer")
+
+        assertEquals(null, vm.settings.value.inviteError)
+        assertEquals(null, vm.settings.value.inviteSuccessMessage)
+    }
+
+    @Test
+    fun setDarkTheme_writesActivityLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setDarkTheme(true)
+
+        assertEquals(true, vm.settings.value.darkThemeEnabled)
+        assertEquals("Тема приложения", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun setDarkTheme_withSameValue_doesNotWriteLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setDarkTheme(false)
+
+        assertTrue(vm.settings.value.activityLog.none { it.action == "Тема приложения" })
+    }
+
+    @Test
+    fun setGoogleSync_writesActivityLogAndSetsErrorWhenDisabled() {
+        val vm = CoinMetricViewModel()
+
+        vm.setGoogleSync(false)
+
+        assertEquals(false, vm.settings.value.googleSyncEnabled)
+        assertEquals("Синхронизация отключена пользователем", vm.settings.value.syncError)
+        assertEquals("Google Sync", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun retrySync_whenGoogleSyncDisabled_setsError() {
+        val vm = CoinMetricViewModel()
+        vm.setGoogleSync(false)
+
+        vm.retrySync()
+
+        assertEquals("Включите Google Sync для повторной отправки", vm.settings.value.syncError)
+    }
+
+    @Test
+    fun retrySync_whenOfflineModeEnabled_setsError() {
+        val vm = CoinMetricViewModel()
+        vm.setOfflineMode(true)
+
+        vm.retrySync()
+
+        assertEquals("Отключите автономный режим для синхронизации", vm.settings.value.syncError)
+    }
+
+    @Test
+    fun setCurrentUserRole_withSameRole_doesNotWriteDuplicateLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setCurrentUserRole("owner")
+
+        assertTrue(vm.settings.value.activityLog.none { it.action == "Смена роли" })
+    }
+
+    @Test
+    fun setSubscriptionPlan_withSamePlan_doesNotWriteLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setSubscriptionPlan("free")
+
+        assertTrue(vm.settings.value.activityLog.none { it.action == "План подписки" })
+    }
+
+    @Test
+    fun updateInviteStatus_setsSuccessMessage() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("accepted@example.com")
+        vm.sendFamilyInvite()
+
+        vm.updateInviteStatus("accepted@example.com", "Принято")
+
+        assertEquals("Статус приглашения обновлён", vm.settings.value.inviteSuccessMessage)
+    }
+
 }
