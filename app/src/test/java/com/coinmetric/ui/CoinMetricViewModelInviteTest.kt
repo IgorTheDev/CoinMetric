@@ -122,4 +122,28 @@ class CoinMetricViewModelInviteTest {
         assertTrue(log.target.contains("Транспорт"))
     }
 
+    @Test
+    fun saveTransaction_withRecurringFlag_writesRecurringActivityLog() {
+        val vm = CoinMetricViewModel()
+        vm.updateAmount("900")
+        vm.updateCategory("Коммунальные")
+        vm.updateRecurringFlag(true)
+
+        vm.saveTransaction(onSuccess = {})
+
+        val logActions = vm.settings.value.activityLog.map { it.action }
+        assertTrue(logActions.contains("Создание операции"))
+        assertTrue(logActions.contains("Добавлен постоянный платёж"))
+    }
+
+    @Test
+    fun setRecurringReminders_updatesSettingsAndWritesLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setRecurringReminders(false)
+
+        assertEquals(false, vm.settings.value.recurringRemindersEnabled)
+        assertEquals("Напоминания о платежах", vm.settings.value.activityLog.first().action)
+    }
+
 }

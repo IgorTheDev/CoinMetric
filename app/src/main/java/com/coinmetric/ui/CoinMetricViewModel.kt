@@ -49,6 +49,7 @@ data class AddTransactionState(
     val categories: List<String> = emptyList(),
     val newCategoryName: String = "",
     val isIncome: Boolean = false,
+    val isRecurring: Boolean = false,
     val amountError: String? = null,
     val categoryError: String? = null,
     val error: String? = null,
@@ -75,6 +76,7 @@ data class ActivityLogUiModel(
 data class SettingsState(
     val darkThemeEnabled: Boolean = false,
     val googleSyncEnabled: Boolean = true,
+    val recurringRemindersEnabled: Boolean = true,
     val showOnboarding: Boolean = true,
     val isOfflineMode: Boolean = false,
     val pendingSyncItems: Int = 0,
@@ -242,6 +244,10 @@ class CoinMetricViewModel : ViewModel() {
         _addState.value = _addState.value.copy(isIncome = isIncome)
     }
 
+    fun updateRecurringFlag(isRecurring: Boolean) {
+        _addState.value = _addState.value.copy(isRecurring = isRecurring)
+    }
+
     fun saveTransaction(onSuccess: () -> Unit) {
         val state = _addState.value
         if (_settings.value.currentUserRole == "viewer") {
@@ -306,6 +312,12 @@ class CoinMetricViewModel : ViewModel() {
             action = action,
             target = "${state.category}: ${signedAmount.toRubCurrency()}",
         )
+        if (state.isRecurring) {
+            appendActivityLog(
+                action = "Добавлен постоянный платёж",
+                target = "${state.category}: ${signedAmount.toRubCurrency()}",
+            )
+        }
         _addState.value = AddTransactionState(
             categories = categories.toList(),
             successMessage = "Операция сохранена",
@@ -344,6 +356,14 @@ class CoinMetricViewModel : ViewModel() {
     fun setGoogleSync(enabled: Boolean) {
         _settings.value = _settings.value.copy(googleSyncEnabled = enabled)
         if (enabled) processSyncQueue()
+    }
+
+    fun setRecurringReminders(enabled: Boolean) {
+        _settings.value = _settings.value.copy(recurringRemindersEnabled = enabled)
+        appendActivityLog(
+            action = "Напоминания о платежах",
+            target = if (enabled) "Включены" else "Отключены",
+        )
     }
 
     fun setOfflineMode(enabled: Boolean) {

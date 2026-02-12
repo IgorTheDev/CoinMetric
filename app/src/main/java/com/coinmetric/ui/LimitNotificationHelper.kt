@@ -29,6 +29,16 @@ class LimitNotificationHelper(private val context: Context) {
         )
     }
 
+
+    fun notifyRecurringPaymentReminder(paymentName: String, amount: Double) {
+        showNotification(
+            id = ("recurring_$paymentName").hashCode(),
+            title = "Напоминание о постоянном платеже",
+            text = "$paymentName: ${"%.2f".format(amount)} ₽",
+            priority = NotificationCompat.PRIORITY_DEFAULT,
+        )
+    }
+
     private fun showNotification(id: Int, title: String, text: String, priority: Int) {
         ensureChannel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
