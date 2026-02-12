@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import com.coinmetric.R
 
 @Composable
 fun GoogleSignInButton(
@@ -35,7 +36,7 @@ fun GoogleSignInButton(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data?.data)
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
                 val account = task.getResult(ApiException::class.java)
                 signInWithFirebase(auth, account, onSignInSuccess, onSignInFailed)
@@ -69,7 +70,7 @@ fun GoogleSignInButton(
 @Composable
 private fun rememberGoogleSignInClient(context: Context): GoogleSignInClient {
     val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-        .requestIdToken(context.getString(R.string.default_web_client_id))
+        .requestIdToken(context.getString(com.coinmetric.R.string.default_web_client_id))
         .requestEmail()
         .build()
     
