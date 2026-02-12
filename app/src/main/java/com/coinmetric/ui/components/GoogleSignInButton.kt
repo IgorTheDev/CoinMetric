@@ -56,7 +56,7 @@ fun GoogleSignInButton(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         try {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data?.data)
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             val account = task.getResult(ApiException::class.java)
             onSignInSuccess(account)
         } catch (e: ApiException) {
