@@ -55,6 +55,16 @@ data class AddTransactionState(
     val successMessage: String? = null,
 )
 
+data class CategoriesState(
+    val categories: List<String> = emptyList(),
+    val monthlyLimits: Map<String, Int> = emptyMap(),
+    val selectedCategory: String = "",
+    val monthlyLimitInput: String = "",
+    val newCategoryName: String = "",
+    val error: String? = null,
+    val successMessage: String? = null,
+)
+
 data class ActivityLogUiModel(
     val actor: String,
     val action: String,
@@ -94,6 +104,12 @@ class CoinMetricViewModel : ViewModel() {
     )
 
     private val categories = mutableListOf("Еда", "Транспорт", "Досуг", "Коммунальные", "Доход")
+    private val categoryMonthlyLimits = mutableMapOf(
+        "Еда" to 15_000,
+        "Транспорт" to 6_000,
+        "Развлечения" to 7_500,
+        "Досуг" to 5_000,
+    )
 
     private val _dashboard = MutableStateFlow(DashboardState())
     val dashboard: StateFlow<DashboardState> = _dashboard.asStateFlow()
@@ -104,9 +120,19 @@ class CoinMetricViewModel : ViewModel() {
     private val _settings = MutableStateFlow(SettingsState())
     val settings: StateFlow<SettingsState> = _settings.asStateFlow()
 
+    private val _categoriesState = MutableStateFlow(CategoriesState())
+    val categoriesState: StateFlow<CategoriesState> = _categoriesState.asStateFlow()
+
     init {
         syncCategoriesWithTransactions()
         _addState.value = _addState.value.copy(categories = categories.toList())
+        val firstCategory = categories.firstOrNull().orEmpty()
+        _categoriesState.value = CategoriesState(
+            categories = categories.toList(),
+            monthlyLimits = categoryMonthlyLimits.toMap(),
+            selectedCategory = firstCategory,
+            monthlyLimitInput = categoryMonthlyLimits[firstCategory]?.toString().orEmpty(),
+        )
         viewModelScope.launch {
             delay(800)
             _dashboard.value = buildDashboardState(isLoading = false)
@@ -142,25 +168,69 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun addNewCategory() {
-        val state = _addState.value
+        val state = _categoriesState.value
         val categoryName = state.newCategoryName.trim()
         if (categoryName.isBlank()) {
-            _addState.value = state.copy(error = "Введите название категории")
+            _categoriesState.value = state.copy(error = "Введите название категории", successMessage = null)
             return
         }
         val exists = categories.any { it.equals(categoryName, ignoreCase = true) }
         if (exists) {
-            _addState.value = state.copy(error = "Такая категория уже существует")
+            _categoriesState.value = state.copy(error = "Такая категория уже существует", successMessage = null)
             return
         }
 
         categories.add(categoryName)
         categories.sortBy { it.lowercase(Locale.getDefault()) }
-        _addState.value = state.copy(
+        _addState.value = _addState.value.copy(
             categories = categories.toList(),
-            category = categoryName,
+        )
+        _categoriesState.value = state.copy(
+            categories = categories.toList(),
+            selectedCategory = categoryName,
+            monthlyLimitInput = "",
             newCategoryName = "",
             error = null,
+            successMessage = "Категория добавлена",
+        )
+    }
+
+    fun updateCategoriesNewCategoryName(value: String) {
+        _categoriesState.value = _categoriesState.value.copy(newCategoryName = value, error = null, successMessage = null)
+    }
+
+    fun updateSelectedLimitCategory(value: String) {
+        _categoriesState.value = _categoriesState.value.copy(
+            selectedCategory = value,
+            monthlyLimitInput = categoryMonthlyLimits[value]?.toString().orEmpty(),
+            error = null,
+            successMessage = null,
+        )
+    }
+
+    fun updateMonthlyLimitInput(value: String) {
+        val sanitized = value.filter { it.isDigit() }
+        _categoriesState.value = _categoriesState.value.copy(monthlyLimitInput = sanitized, error = null, successMessage = null)
+    }
+
+    fun saveMonthlyLimit() {
+        val state = _categoriesState.value
+        if (state.selectedCategory.isBlank()) {
+            _categoriesState.value = state.copy(error = "Выберите категорию", successMessage = null)
+            return
+        }
+
+        val limit = state.monthlyLimitInput.toIntOrNull()
+        if (limit == null || limit <= 0) {
+            _categoriesState.value = state.copy(error = "Введите корректный лимит", successMessage = null)
+            return
+        }
+
+        categoryMonthlyLimits[state.selectedCategory] = limit
+        _categoriesState.value = state.copy(
+            monthlyLimits = categoryMonthlyLimits.toMap(),
+            error = null,
+            successMessage = "Лимит на месяц сохранён",
         )
     }
 
@@ -216,6 +286,9 @@ class CoinMetricViewModel : ViewModel() {
         if (categories.none { it.equals(state.category, ignoreCase = true) }) {
             categories.add(state.category)
             categories.sortBy { it.lowercase(Locale.getDefault()) }
+            _categoriesState.value = _categoriesState.value.copy(
+                categories = categories.toList(),
+            )
         }
 
         _dashboard.value = buildDashboardState(isLoading = false)

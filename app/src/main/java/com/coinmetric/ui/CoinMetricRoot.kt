@@ -41,6 +41,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -90,6 +91,7 @@ private sealed class Screen(val route: String, val label: String, val icon: andr
     data object Dashboard : Screen("dashboard", "Главная", Icons.Filled.Home)
     data object Calendar : Screen("calendar", "Календарь", Icons.Filled.CalendarMonth)
     data object Add : Screen("add", "Добавить", Icons.Filled.AddCircle)
+    data object Categories : Screen("categories", "Категории", Icons.Filled.Category)
     data object Analytics : Screen("analytics", "Аналитика", Icons.Filled.Analytics)
     data object Settings : Screen("settings", "Настройки", Icons.Filled.Settings)
 }
@@ -157,6 +159,9 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                     composable(Screen.Add.route) {
                         AddScreen(vm) { navController.navigate(Screen.Dashboard.route) }
                     }
+                    composable(Screen.Categories.route) {
+                        CategoriesScreen(vm = vm)
+                    }
                     composable(Screen.Analytics.route) {
                         AnalyticsScreen(
                             vm = vm,
@@ -187,6 +192,7 @@ private fun CoinMetricBottomNavigation(
         Screen.Dashboard,
         Screen.Calendar,
         Screen.Add,
+        Screen.Categories,
         Screen.Analytics,
         Screen.Settings,
     )
@@ -255,6 +261,7 @@ private fun HeaderTitle(route: String, onCancelAdd: () -> Unit) {
     val config = when (route) {
         Screen.Calendar.route -> HeaderConfig("Календарь", "Операции по датам")
         Screen.Add.route -> HeaderConfig("Добавление операции")
+        Screen.Categories.route -> HeaderConfig("Категории", "Лимиты и управление категориями")
         Screen.Analytics.route -> HeaderConfig("Аналитика", "Структура расходов и лимиты")
         Screen.Settings.route -> HeaderConfig("Настройки", "Тема, синхронизация и доступ")
         else -> HeaderConfig("CoinMetric", "Семейный финансовый обзор")
@@ -538,21 +545,6 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        modifier = Modifier.weight(1f),
-                        value = state.newCategoryName,
-                        onValueChange = vm::updateNewCategoryName,
-                        enabled = canEditTransactions,
-                        label = { Text("Новая категория") },
-                        singleLine = true,
-                    )
-                    Button(onClick = vm::addNewCategory, enabled = canEditTransactions) {
-                        Text("Добавить")
-                    }
-                }
-            }
-            item {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = state.note,
@@ -644,9 +636,121 @@ private fun CalculatorPad(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoriesScreen(vm: CoinMetricViewModel) {
+    val state by vm.categoriesState.collectAsStateWithLifecycle()
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
+        item {
+            Text(
+                "Добавляйте категории и задавайте лимит расходов на месяц.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Новая категория", fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            modifier = Modifier.weight(1f),
+                            value = state.newCategoryName,
+                            onValueChange = vm::updateCategoriesNewCategoryName,
+                            label = { Text("Название категории") },
+                            singleLine = true,
+                        )
+                        Button(onClick = vm::addNewCategory) {
+                            Text("Добавить")
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Лимит на месяц", fontWeight = FontWeight.SemiBold)
+                    var categoriesExpanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = categoriesExpanded,
+                        onExpandedChange = { categoriesExpanded = !categoriesExpanded },
+                    ) {
+                        OutlinedTextField(
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            value = state.selectedCategory,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Категория") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoriesExpanded)
+                            },
+                        )
+                        ExposedDropdownMenu(
+                            expanded = categoriesExpanded,
+                            onDismissRequest = { categoriesExpanded = false },
+                        ) {
+                            state.categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category) },
+                                    onClick = {
+                                        vm.updateSelectedLimitCategory(category)
+                                        categoriesExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = state.monthlyLimitInput,
+                        onValueChange = vm::updateMonthlyLimitInput,
+                        label = { Text("Лимит в месяц, ₽") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = vm::saveMonthlyLimit,
+                    ) {
+                        Text("Сохранить лимит")
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Текущие лимиты", fontWeight = FontWeight.SemiBold)
+                    if (state.monthlyLimits.isEmpty()) {
+                        Text("Лимиты пока не заданы")
+                    } else {
+                        state.monthlyLimits.toSortedMap().forEach { (category, limit) ->
+                            Text("$category — ${limit.toRubCurrency()}")
+                        }
+                    }
+                }
+            }
+        }
+        state.error?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.error) }
+        }
+        state.successMessage?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.primary) }
+        }
+    }
+}
+
 @Composable
 private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
+    val categoriesState by vm.categoriesState.collectAsStateWithLifecycle()
     val expensesByCategory = state.allTransactions
         .filterNot { it.income }
         .groupBy { it.category }
@@ -659,12 +763,7 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) 
             title to amount.toFloat() / totalExpenses
         }
 
-    val limitsByCategory = mapOf(
-        "Еда" to 15_000,
-        "Транспорт" to 6_000,
-        "Развлечения" to 7_500,
-        "Досуг" to 5_000,
-    ).map { (title, limit) ->
+    val limitsByCategory = categoriesState.monthlyLimits.map { (title, limit) ->
         val spent = expensesByCategory[title] ?: 0
         title to (spent.toFloat() / limit).coerceIn(0f, 1f)
     }
@@ -1323,6 +1422,117 @@ private fun AddScreenPreview() {
 }
 
 @Preview(showBackground = true)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoriesScreen(vm: CoinMetricViewModel) {
+    val state by vm.categoriesState.collectAsStateWithLifecycle()
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
+        item {
+            Text(
+                "Добавляйте категории и задавайте лимит расходов на месяц.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Новая категория", fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            modifier = Modifier.weight(1f),
+                            value = state.newCategoryName,
+                            onValueChange = vm::updateCategoriesNewCategoryName,
+                            label = { Text("Название категории") },
+                            singleLine = true,
+                        )
+                        Button(onClick = vm::addNewCategory) {
+                            Text("Добавить")
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Лимит на месяц", fontWeight = FontWeight.SemiBold)
+                    var categoriesExpanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = categoriesExpanded,
+                        onExpandedChange = { categoriesExpanded = !categoriesExpanded },
+                    ) {
+                        OutlinedTextField(
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            value = state.selectedCategory,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Категория") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoriesExpanded)
+                            },
+                        )
+                        ExposedDropdownMenu(
+                            expanded = categoriesExpanded,
+                            onDismissRequest = { categoriesExpanded = false },
+                        ) {
+                            state.categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category) },
+                                    onClick = {
+                                        vm.updateSelectedLimitCategory(category)
+                                        categoriesExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = state.monthlyLimitInput,
+                        onValueChange = vm::updateMonthlyLimitInput,
+                        label = { Text("Лимит в месяц, ₽") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = vm::saveMonthlyLimit,
+                    ) {
+                        Text("Сохранить лимит")
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Текущие лимиты", fontWeight = FontWeight.SemiBold)
+                    if (state.monthlyLimits.isEmpty()) {
+                        Text("Лимиты пока не заданы")
+                    } else {
+                        state.monthlyLimits.toSortedMap().forEach { (category, limit) ->
+                            Text("$category — ${limit.toRubCurrency()}")
+                        }
+                    }
+                }
+            }
+        }
+        state.error?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.error) }
+        }
+        state.successMessage?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.primary) }
+        }
+    }
+}
+
 @Composable
 private fun AnalyticsScreenPreview() {
     CoinMetricTheme {
