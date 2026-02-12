@@ -1,12 +1,14 @@
 package com.coinmetric.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -114,8 +117,13 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
             },
             floatingActionButton = {
                 if (currentRoute != Screen.Add.route) {
-                    FloatingActionButton(onClick = { navController.navigate(Screen.Add.route) }) {
-                        Text("Добавить")
+                    FloatingActionButton(
+                        onClick = { navController.navigate(Screen.Add.route) },
+                        modifier = Modifier.size(72.dp),
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        Text("➕", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
                     }
                 }
             },
@@ -192,8 +200,15 @@ private fun HeaderTitle(route: String, onCancelAdd: () -> Unit) {
         },
         navigationIcon = {
             if (route == Screen.Add.route) {
-                IconButton(onClick = onCancelAdd) {
-                    Text("Отмена")
+                IconButton(
+                    onClick = onCancelAdd,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Text(
+                        "❌",
+                        fontSize = MaterialTheme.typography.bodyLarge.fontSize,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         },
@@ -304,6 +319,9 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
             )
         }
         item {
+            var calculatorExpanded by remember { mutableStateOf(false) }
+            var expression by remember { mutableStateOf("") }
+            
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
                 value = state.amount,
@@ -315,7 +333,50 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 supportingText = {
                     state.amountError?.let { Text(it) }
                 },
+                trailingIcon = {
+                    IconButton(onClick = { calculatorExpanded = !calculatorExpanded }) {
+                        Text("🧮", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
+                    }
+                }
             )
+            
+            if (calculatorExpanded) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            value = expression,
+                            onValueChange = { expression = it },
+                            label = { Text("Выражение") },
+                            placeholder = { Text("например: 100+50*2") }
+                        )
+                        
+                        Button(
+                            onClick = {
+                                try {
+                                    // Простой парсер выражений
+                                    val result = expression.replace(" ", "").toDoubleOrNull() ?: evalMathExpression(expression)
+                                    vm.updateAmount(result.toString())
+                                    calculatorExpanded = false
+                                    expression = ""
+                                } catch (e: Exception) {
+                                    // В реальной реализации нужно будет обработать ошибку
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Вычислить")
+                        }
+                    }
+                }
+            }
         }
         item {
             OutlinedTextField(
@@ -448,11 +509,14 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel) {
 @Composable
 private fun CalendarScreen(vm: CoinMetricViewModel) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
-    val groupedTransactions = state.recentTransactions.groupBy { it.date }
-    var selectedDate by remember(groupedTransactions.keys) {
-        mutableStateOf(groupedTransactions.keys.firstOrNull())
+    val transactions = state.recentTransactions
+    var selectedDate by remember { mutableStateOf<String?>(null) }
+    
+    // Получаем список всех уникальных дат из транзакций
+    val allDates = remember(transactions) {
+        transactions.map { it.date }.distinct()
     }
-
+    
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (state.isLoading) {
             item {
@@ -479,15 +543,12 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Календарь", fontWeight = FontWeight.SemiBold)
-                    if (groupedTransactions.isEmpty()) {
-                        Text("Нет операций на выбранную дату")
-                    } else {
-                        groupedTransactions.forEach { (date, items) ->
-                            Button(onClick = { selectedDate = date }) {
-                                Text("$date (${items.size})")
-                            }
-                        }
-                    }
+                    
+                    // Отображаем календарь с возможностью выбора даты
+                    CalendarView(
+                        datesWithTransactions = allDates,
+                        onDateSelected = { selectedDate = it }
+                    )
                 }
             }
         }
@@ -495,11 +556,15 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Выбранная дата", fontWeight = FontWeight.SemiBold)
-                    val selectedItems = selectedDate?.let(groupedTransactions::get).orEmpty()
+                    val selectedItems = if (selectedDate != null) {
+                        transactions.filter { it.date == selectedDate }
+                    } else {
+                        emptyList()
+                    }
                     if (selectedDate == null || selectedItems.isEmpty()) {
                         Text("Выберите дату, чтобы увидеть операции")
                     } else {
-                        Text(selectedDate.orEmpty(), fontWeight = FontWeight.Medium)
+                        Text(selectedDate!!, fontWeight = FontWeight.Medium)
                         selectedItems.forEach { tx ->
                             val sign = if (tx.amount >= 0) "+" else "-"
                             Text("$sign${kotlin.math.abs(tx.amount).toRubCurrency()} · ${tx.title}")
@@ -510,6 +575,156 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
             }
         }
         item { Spacer(Modifier.height(72.dp)) }
+    }
+}
+
+@Composable
+fun CalendarView(
+    datesWithTransactions: List<String>,
+    onDateSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var currentDate by remember { mutableStateOf(java.util.Calendar.getInstance()) }
+    val selectedCalendar = remember { java.util.Calendar.getInstance() }
+    
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = {
+                currentDate.apply {
+                    add(java.util.Calendar.MONTH, -1)
+                }
+            }) {
+                Text("◀")
+            }
+            
+            Text(
+                "${currentDate.get(java.util.Calendar.YEAR)} ${
+                    java.text.DateFormatSymbols().shortMonths[currentDate.get(java.util.Calendar.MONTH)]
+                }",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            
+            IconButton(onClick = {
+                currentDate.apply {
+                    add(java.util.Calendar.MONTH, 1)
+                }
+            }) {
+                Text("▶")
+            }
+        }
+        
+        // Дни недели
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEach { day ->
+                Text(
+                    day,
+                    modifier = Modifier.weight(1f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+        
+        // Календарная сетка
+        val firstDayOfMonth = java.util.Calendar.getInstance().apply {
+            time = currentDate.time
+            set(java.util.Calendar.DAY_OF_MONTH, 1)
+        }
+        val daysInMonth = firstDayOfMonth.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
+        val firstDayOfWeek = firstDayOfMonth.get(java.util.Calendar.DAY_OF_WEEK) - 2 // Понедельник как первый день
+        var dayCounter = 1
+        
+        for (weekIndex in 0..5) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                for (dayOfWeek in 0..6) {
+                    if (weekIndex == 0 && dayOfWeek < firstDayOfWeek) {
+                        Text("", modifier = Modifier.weight(1f))
+                    } else if (dayCounter <= daysInMonth) {
+                        val dayString = String.format("%02d", dayCounter)
+                        val fullDate = "${currentDate.get(java.util.Calendar.YEAR)}-${
+                            String.format("%02d", currentDate.get(java.util.Calendar.MONTH) + 1)
+                        }-$dayString"
+                        
+                        val hasTransactions = datesWithTransactions.contains(fullDate)
+                        val isSelected = selectedCalendar.get(java.util.Calendar.DAY_OF_MONTH) == dayCounter &&
+                                selectedCalendar.get(java.util.Calendar.MONTH) == currentDate.get(java.util.Calendar.MONTH) &&
+                                selectedCalendar.get(java.util.Calendar.YEAR) == currentDate.get(java.util.Calendar.YEAR)
+                        
+                        CalendarDay(
+                            day = dayCounter,
+                            hasTransactions = hasTransactions,
+                            isSelected = isSelected,
+                            onClick = {
+                                selectedCalendar.set(java.util.Calendar.DAY_OF_MONTH, dayCounter)
+                                selectedCalendar.set(java.util.Calendar.MONTH, currentDate.get(java.util.Calendar.MONTH))
+                                selectedCalendar.set(java.util.Calendar.YEAR, currentDate.get(java.util.Calendar.YEAR))
+                                onDateSelected(fullDate)
+                            }
+                        )
+                        dayCounter++
+                    } else {
+                        Text("", modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+            if (dayCounter > daysInMonth) break
+        }
+    }
+}
+
+@Composable
+fun CalendarDay(
+    day: Int,
+    hasTransactions: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clickable { onClick() }
+            .border(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                shape = androidx.compose.foundation.shape.CircleShape
+            )
+            .background(
+                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                day.toString(),
+                style = if (isSelected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+            if (hasTransactions) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = androidx.compose.foundation.shape.CircleShape
+                        )
+                )
+            }
+        }
     }
 }
 
@@ -676,4 +891,69 @@ private fun SettingRow(title: String, checked: Boolean, onCheckedChange: (Boolea
         Text(title)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
+}
+
+/**
+ * Простой парсер математических выражений
+ * Поддерживает основные операции: +, -, *, /
+ */
+fun evalMathExpression(expr: String): Double {
+    // Упрощенная реализация для базовых арифметических операций
+    // В реальном проекте лучше использовать библиотеку для парсинга выражений
+    
+    // Удаляем пробелы
+    var expression = expr.replace(" ", "")
+    
+    // Проверяем наличие операций
+    if ("+" in expression || "-" in expression || "*" in expression || "/" in expression) {
+        // Простой рекурсивный спуск для выражений вида a+b, a-b, a*b, a/b
+        // Ищем последнюю операцию сложения/вычитания (с учетом приоритета)
+        var bracketLevel = 0
+        var lastOpPos = -1
+        var lastOp = '+'
+        
+        for (i in expression.length - 1 downTo 0) {
+            when (expression[i]) {
+                ')' -> bracketLevel++
+                '(' -> bracketLevel--
+                '+', '-' -> {
+                    if (bracketLevel == 0) {
+                        if (lastOpPos == -1) {
+                            lastOpPos = i
+                            lastOp = expression[i]
+                        }
+                    }
+                }
+                '*', '/' -> {
+                    if (bracketLevel == 0) {
+                        lastOpPos = i
+                        lastOp = expression[i]
+                    }
+                }
+            }
+        }
+        
+        if (lastOpPos != -1) {
+            val left = expression.substring(0, lastOpPos)
+            val right = expression.substring(lastOpPos + 1)
+            val leftVal = evalMathExpression(left)
+            val rightVal = evalMathExpression(right)
+            
+            return when (lastOp) {
+                '+' -> leftVal + rightVal
+                '-' -> leftVal - rightVal
+                '*' -> leftVal * rightVal
+                '/' -> leftVal / rightVal
+                else -> 0.0
+            }
+        }
+    }
+    
+    // Если это число или выражение в скобках
+    if (expression.startsWith("(") && expression.endsWith(")")) {
+        return evalMathExpression(expression.substring(1, expression.length - 1))
+    }
+    
+    // Пытаемся распарсить как число
+    return expression.toDoubleOrNull() ?: 0.0
 }
