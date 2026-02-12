@@ -114,6 +114,7 @@ class CoinMetricViewModel : ViewModel() {
     private val allowedInviteRoles = setOf("editor", "viewer")
     private val allowedSubscriptionPlans = setOf("free", "pro")
     private val allowedInviteStatuses = setOf("Ожидает принятия", "Принято", "Отклонено")
+    private val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")
 
     private val transactions = mutableListOf(
         SampleTransaction("Продукты", -1800, "2023-10-27", "Еда", false),
@@ -421,6 +422,7 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setRecurringReminders(enabled: Boolean) {
+        if (_settings.value.recurringRemindersEnabled == enabled) return
         _settings.value = _settings.value.copy(recurringRemindersEnabled = enabled)
         appendActivityLog(
             action = "Напоминания о платежах",
@@ -429,12 +431,13 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setSubscriptionPlan(plan: String) {
-        if (!allowedSubscriptionPlans.contains(plan)) return
-        if (_settings.value.subscriptionPlan == plan) return
-        _settings.value = _settings.value.copy(subscriptionPlan = plan)
+        val normalizedPlan = plan.trim().lowercase(Locale.getDefault())
+        if (!allowedSubscriptionPlans.contains(normalizedPlan)) return
+        if (_settings.value.subscriptionPlan == normalizedPlan) return
+        _settings.value = _settings.value.copy(subscriptionPlan = normalizedPlan)
         appendActivityLog(
             action = "План подписки",
-            target = when (plan) {
+            target = when (normalizedPlan) {
                 "pro" -> "CoinMetric Pro"
                 else -> "CoinMetric Free"
             },
@@ -442,6 +445,7 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setPinProtectionEnabled(enabled: Boolean) {
+        if (_settings.value.pinProtectionEnabled == enabled) return
         _settings.value = _settings.value.copy(pinProtectionEnabled = enabled, syncError = null)
         appendActivityLog(
             action = "PIN-защита",
@@ -462,6 +466,7 @@ class CoinMetricViewModel : ViewModel() {
             _settings.value = current.copy(syncError = "Сначала включите PIN-защиту")
             return
         }
+        if (current.biometricProtectionEnabled == enabled) return
         _settings.value = current.copy(biometricProtectionEnabled = enabled, syncError = null)
         appendActivityLog(
             action = "Биометрия",
@@ -474,6 +479,7 @@ class CoinMetricViewModel : ViewModel() {
             _settings.value = _settings.value.copy(syncError = "Для завершения включите PIN-защиту")
             return
         }
+        if (_settings.value.securitySetupCompleted) return
         _settings.value = _settings.value.copy(securitySetupCompleted = true)
         appendActivityLog(
             action = "Мастер безопасности",
@@ -486,6 +492,7 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setOfflineMode(enabled: Boolean) {
+        if (_settings.value.isOfflineMode == enabled) return
         _settings.value = _settings.value.copy(
             isOfflineMode = enabled,
             syncError = if (enabled) "Автономный режим активен" else null,
@@ -511,11 +518,21 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun dismissOnboarding() {
+        if (!_settings.value.showOnboarding) return
         _settings.value = _settings.value.copy(showOnboarding = false)
+        appendActivityLog(
+            action = "Onboarding",
+            target = "Подсказки скрыты",
+        )
     }
 
     fun setOnboardingVisible(enabled: Boolean) {
+        if (_settings.value.showOnboarding == enabled) return
         _settings.value = _settings.value.copy(showOnboarding = enabled)
+        appendActivityLog(
+            action = "Onboarding",
+            target = if (enabled) "Подсказки включены" else "Подсказки отключены",
+        )
     }
 
     fun updateInviteEmail(value: String) {
@@ -527,9 +544,10 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun updateInviteRole(role: String) {
+        val normalizedRole = role.trim().lowercase(Locale.getDefault())
         _settings.value = _settings.value.copy(
-            inviteRole = if (allowedInviteRoles.contains(role)) role else "editor",
-            inviteError = null,
+            inviteRole = if (allowedInviteRoles.contains(normalizedRole)) normalizedRole else "editor",
+            inviteError = if (allowedInviteRoles.contains(normalizedRole)) null else "Некорректная роль приглашения",
             inviteSuccessMessage = null,
         )
     }
@@ -542,10 +560,14 @@ class CoinMetricViewModel : ViewModel() {
         val current = _settings.value
         if (current.currentUserRole != "owner") {
             _settings.value = current.copy(inviteError = "Только владелец может отправлять приглашения")
+            appendActivityLog(
+                action = "Отказ в отправке приглашения",
+                target = mapRoleLabel(current.currentUserRole),
+            )
             return
         }
         val email = current.inviteEmail.trim().lowercase(Locale.getDefault())
-        if (email.isBlank() || !email.contains("@")) {
+        if (email.isBlank() || !emailRegex.matches(email)) {
             _settings.value = current.copy(inviteError = "Некорректный email")
             return
         }
@@ -577,6 +599,10 @@ class CoinMetricViewModel : ViewModel() {
         val current = _settings.value
         if (current.currentUserRole != "owner") {
             _settings.value = current.copy(inviteError = "Только владелец может отзывать приглашения")
+            appendActivityLog(
+                action = "Отказ в отзыве приглашения",
+                target = mapRoleLabel(current.currentUserRole),
+            )
             return
         }
         val invite = current.pendingInvites.firstOrNull { it.email.equals(normalizedEmail, ignoreCase = true) }
@@ -602,11 +628,19 @@ class CoinMetricViewModel : ViewModel() {
 
     fun updateInviteStatus(email: String, newStatus: String) {
         val normalizedEmail = email.trim().lowercase(Locale.getDefault())
+        val current = _settings.value
+        if (current.currentUserRole == "viewer") {
+            _settings.value = current.copy(inviteError = "Роль просмотра не позволяет менять статус приглашений")
+            appendActivityLog(
+                action = "Отказ в изменении статуса приглашения",
+                target = mapRoleLabel(current.currentUserRole),
+            )
+            return
+        }
         if (!allowedInviteStatuses.contains(newStatus) || newStatus == "Ожидает принятия") {
             _settings.value = _settings.value.copy(inviteError = "Некорректный статус приглашения")
             return
         }
-        val current = _settings.value
         val invite = current.pendingInvites.firstOrNull { it.email.equals(normalizedEmail, ignoreCase = true) }
         if (invite == null) {
             _settings.value = current.copy(inviteError = "Приглашение не найдено")
@@ -632,15 +666,16 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setCurrentUserRole(role: String) {
-        if (!allowedRoles.contains(role)) {
+        val normalizedRole = role.trim().lowercase(Locale.getDefault())
+        if (!allowedRoles.contains(normalizedRole)) {
             _settings.value = _settings.value.copy(inviteError = "Некорректная роль пользователя")
             return
         }
-        if (_settings.value.currentUserRole == role) return
-        _settings.value = _settings.value.copy(currentUserRole = role, inviteError = null)
+        if (_settings.value.currentUserRole == normalizedRole) return
+        _settings.value = _settings.value.copy(currentUserRole = normalizedRole, inviteError = null)
         appendActivityLog(
             action = "Смена роли",
-            target = mapRoleLabel(role),
+            target = mapRoleLabel(normalizedRole),
         )
     }
 

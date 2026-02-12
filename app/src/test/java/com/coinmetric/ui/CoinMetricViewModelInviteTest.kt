@@ -434,6 +434,16 @@ class CoinMetricViewModelInviteTest {
     }
 
     @Test
+    fun updateInviteRole_withInvalidValue_setsErrorAndFallsBackToEditor() {
+        val vm = CoinMetricViewModel()
+
+        vm.updateInviteRole(" manager ")
+
+        assertEquals("editor", vm.settings.value.inviteRole)
+        assertEquals("Некорректная роль приглашения", vm.settings.value.inviteError)
+    }
+
+    @Test
     fun setDarkTheme_writesActivityLog() {
         val vm = CoinMetricViewModel()
 
@@ -502,6 +512,15 @@ class CoinMetricViewModelInviteTest {
     }
 
     @Test
+    fun setSubscriptionPlan_normalizesInput() {
+        val vm = CoinMetricViewModel()
+
+        vm.setSubscriptionPlan(" PRO ")
+
+        assertEquals("pro", vm.settings.value.subscriptionPlan)
+    }
+
+    @Test
     fun updateInviteStatus_setsSuccessMessage() {
         val vm = CoinMetricViewModel()
         vm.updateInviteEmail("accepted@example.com")
@@ -510,6 +529,142 @@ class CoinMetricViewModelInviteTest {
         vm.updateInviteStatus("accepted@example.com", "Принято")
 
         assertEquals("Статус приглашения обновлён", vm.settings.value.inviteSuccessMessage)
+    }
+
+    @Test
+    fun sendFamilyInvite_withMalformedEmail_returnsError() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("user@")
+
+        vm.sendFamilyInvite()
+
+        assertEquals("Некорректный email", vm.settings.value.inviteError)
+        assertTrue(vm.settings.value.pendingInvites.isEmpty())
+    }
+
+    @Test
+    fun setCurrentUserRole_normalizesInput() {
+        val vm = CoinMetricViewModel()
+
+        vm.setCurrentUserRole(" VIEWER ")
+
+        assertEquals("viewer", vm.settings.value.currentUserRole)
+    }
+
+    @Test
+    fun updateInviteStatus_asViewer_returnsPermissionError() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("viewer-status@example.com")
+        vm.sendFamilyInvite()
+        vm.setCurrentUserRole("viewer")
+
+        vm.updateInviteStatus("viewer-status@example.com", "Принято")
+
+        assertEquals("Роль просмотра не позволяет менять статус приглашений", vm.settings.value.inviteError)
+        assertEquals("Ожидает принятия", vm.settings.value.pendingInvites.first().status)
+    }
+
+    @Test
+    fun sendFamilyInvite_asEditor_writesDeniedLog() {
+        val vm = CoinMetricViewModel()
+        vm.setCurrentUserRole("editor")
+        vm.updateInviteEmail("no-permission@example.com")
+
+        vm.sendFamilyInvite()
+
+        assertEquals("Отказ в отправке приглашения", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun revokeFamilyInvite_asEditor_writesDeniedLog() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("pending@example.com")
+        vm.sendFamilyInvite()
+        vm.setCurrentUserRole("editor")
+
+        vm.revokeFamilyInvite("pending@example.com")
+
+        assertEquals("Отказ в отзыве приглашения", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun updateInviteStatus_asViewer_writesDeniedLog() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("pending@example.com")
+        vm.sendFamilyInvite()
+        vm.setCurrentUserRole("viewer")
+
+        vm.updateInviteStatus("pending@example.com", "Принято")
+
+        assertEquals("Отказ в изменении статуса приглашения", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun dismissOnboarding_writesLogAndHidesHints() {
+        val vm = CoinMetricViewModel()
+
+        vm.dismissOnboarding()
+
+        assertEquals(false, vm.settings.value.showOnboarding)
+        assertEquals("Onboarding", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun setOnboardingVisible_withSameValue_doesNotWriteLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setOnboardingVisible(true)
+
+        assertTrue(vm.settings.value.activityLog.none { it.action == "Onboarding" })
+    }
+
+    @Test
+    fun setRecurringReminders_withSameValue_doesNotWriteLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setRecurringReminders(true)
+
+        assertTrue(vm.settings.value.activityLog.none { it.action == "Напоминания о платежах" })
+    }
+
+    @Test
+    fun setOfflineMode_withSameValue_doesNotWriteLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setOfflineMode(false)
+
+        assertTrue(vm.settings.value.activityLog.none { it.action == "Автономный режим" })
+    }
+
+    @Test
+    fun completeSecuritySetup_twice_writesOnlyOneLog() {
+        val vm = CoinMetricViewModel()
+        vm.setPinProtectionEnabled(true)
+
+        vm.completeSecuritySetup()
+        vm.completeSecuritySetup()
+
+        assertEquals(1, vm.settings.value.activityLog.count { it.action == "Мастер безопасности" })
+    }
+
+    @Test
+    fun setPinProtection_withSameValue_doesNotWriteLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setPinProtectionEnabled(false)
+
+        assertTrue(vm.settings.value.activityLog.none { it.action == "PIN-защита" })
+    }
+
+    @Test
+    fun setBiometricProtection_withSameValue_doesNotWriteLog() {
+        val vm = CoinMetricViewModel()
+        vm.setPinProtectionEnabled(true)
+        vm.setBiometricProtectionEnabled(true)
+
+        vm.setBiometricProtectionEnabled(true)
+
+        assertEquals(1, vm.settings.value.activityLog.count { it.action == "Биометрия" })
     }
 
 }
