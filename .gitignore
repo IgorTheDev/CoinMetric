@@ -6,6 +6,7 @@
 *.dll
 *.so
 *.a
+*.exe
 
 # Dependencies
 node_modules/
@@ -33,11 +34,11 @@ target/
 *.swp
 *.swo
 
-# System
+# System files
 .DS_Store
 Thumbs.db
 
-# Coverage
+# Coverage reports
 coverage/
 htmlcov/
 .coverage
