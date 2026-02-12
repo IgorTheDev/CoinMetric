@@ -67,4 +67,32 @@ class CoinMetricViewModelInviteTest {
 
         assertEquals("Статус уже обновлён", vm.settings.value.inviteError)
     }
+
+    @Test
+    fun sendFamilyInvite_asEditor_returnsPermissionError() {
+        val vm = CoinMetricViewModel()
+        vm.setCurrentUserRole("editor")
+        vm.updateInviteEmail("editor@example.com")
+
+        vm.sendFamilyInvite()
+
+        assertEquals("Только владелец может отправлять приглашения", vm.settings.value.inviteError)
+        assertTrue(vm.settings.value.pendingInvites.isEmpty())
+    }
+
+    @Test
+    fun saveTransaction_asViewer_returnsPermissionError() {
+        val vm = CoinMetricViewModel()
+        vm.setCurrentUserRole("viewer")
+        vm.updateAmount("1000")
+        vm.updateCategory("Еда")
+
+        vm.saveTransaction(onSuccess = {})
+
+        assertEquals(
+            "Роль просмотра не позволяет добавлять или редактировать операции",
+            vm.addState.value.error,
+        )
+    }
+
 }

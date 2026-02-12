@@ -70,6 +70,7 @@ data class SettingsState(
     val inviteError: String? = null,
     val inviteSuccessMessage: String? = null,
     val pendingInvites: List<FamilyInviteUiModel> = emptyList(),
+    val currentUserRole: String = "owner",
 )
 
 data class FamilyInviteUiModel(
@@ -128,6 +129,14 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun saveTransaction(onSuccess: () -> Unit) {
+        if (!canModifyTransactions()) {
+            _addState.value = _addState.value.copy(
+                error = "Роль просмотра не позволяет добавлять или редактировать операции",
+                successMessage = null,
+            )
+            return
+        }
+
         val state = _addState.value
         val amountValue = state.amount.toIntOrNull()
         val amountError = if (amountValue == null || amountValue <= 0) "Введите сумму больше 0" else null
@@ -236,6 +245,13 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun updateInviteRole(role: String) {
+        if (!canManageFamilyAccess()) {
+            _settings.value = _settings.value.copy(
+                inviteError = "Только владелец может менять роли приглашений",
+                inviteSuccessMessage = null,
+            )
+            return
+        }
         _settings.value = _settings.value.copy(
             inviteRole = role,
             inviteError = null,
@@ -243,8 +259,24 @@ class CoinMetricViewModel : ViewModel() {
         )
     }
 
+    fun setCurrentUserRole(role: String) {
+        _settings.value = _settings.value.copy(
+            currentUserRole = role,
+            inviteError = null,
+            inviteSuccessMessage = null,
+        )
+    }
+
     fun sendFamilyInvite() {
         val current = _settings.value
+        if (!canManageFamilyAccess()) {
+            _settings.value = current.copy(
+                inviteError = "Только владелец может отправлять приглашения",
+                inviteSuccessMessage = null,
+            )
+            return
+        }
+
         val email = current.inviteEmail.trim()
         val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$".toRegex()
 
@@ -281,6 +313,14 @@ class CoinMetricViewModel : ViewModel() {
 
     fun updateInviteStatus(email: String, newStatus: String) {
         val current = _settings.value
+        if (!canManageFamilyAccess()) {
+            _settings.value = current.copy(
+                inviteError = "Только владелец может менять статус приглашений",
+                inviteSuccessMessage = null,
+            )
+            return
+        }
+
         val currentInvite = current.pendingInvites.firstOrNull { it.email.equals(email, ignoreCase = true) }
 
         if (currentInvite == null) {
@@ -397,5 +437,11 @@ class CoinMetricViewModel : ViewModel() {
                 "$sign${kotlin.math.abs(tx.amount).toRubCurrency()} · ${tx.title} · ${tx.date}"
             },
         )
+    }
+
+    private fun canManageFamilyAccess(): Boolean = _settings.value.currentUserRole == "owner"
+
+    private fun canModifyTransactions(): Boolean {
+        return _settings.value.currentUserRole == "owner" || _settings.value.currentUserRole == "editor"
     }
 }
