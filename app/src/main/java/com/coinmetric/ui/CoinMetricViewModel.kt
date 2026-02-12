@@ -96,6 +96,7 @@ data class SettingsState(
     val inviteSuccessMessage: String? = null,
     val pendingInvites: List<FamilyInviteUiModel> = emptyList(),
     val currentUserRole: String = "owner",
+    val currentUserEmail: String = "",
     val activityLog: List<ActivityLogUiModel> = emptyList(),
     val subscriptionPlan: String = "free",
     val pinProtectionEnabled: Boolean = false,
@@ -165,6 +166,10 @@ class CoinMetricViewModel : ViewModel() {
                 )
             )
         }
+    }
+
+    fun updateCurrentUserEmail(email: String) {
+        _settings.value = _settings.value.copy(currentUserEmail = email)
     }
 
     fun updateAmount(value: String) {

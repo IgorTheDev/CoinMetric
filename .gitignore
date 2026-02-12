@@ -1,3 +1,22 @@
+```
+# Dependencies
+node_modules/
+.gradle/
+build/
+target/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+.env.local
+*.env.*
+
+# Compiled files
 *.class
 *.o
 *.obj
@@ -6,32 +25,27 @@
 *.so
 *.a
 *.out
-*.pyc
+
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
 *.swp
 *.swo
 *.tmp
-*.log
-*.env
-*.env.local
-.env*
-node_modules/
-__pycache__/
-.pycache/
-venv/
-.venv/
-dist/
-build/
-target/
-.gradle/
-.mypy_cache/
-.pytest_cache/
-.coverage
-coverage/
-htmlcov/
-.vscode/
-.idea/
+
+# System
 .DS_Store
 Thumbs.db
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compressed files
 *.zip
 *.gz
 *.tar
@@ -54,3 +68,4 @@ Thumbs.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+```

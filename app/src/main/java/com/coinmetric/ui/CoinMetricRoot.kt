@@ -1153,6 +1153,18 @@ fun CalendarView(
 private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Unit, onOnboardingVisibilityChanged: (Boolean) -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val canManageMembers = settings.currentUserRole == "owner"
+
+    // Function to get current user email
+    fun getCurrentUserEmail(): String {
+        return settings.currentUserEmail.takeIf { it.isNotEmpty() } ?: "Аккаунт не указан"
+    }
+
+    // Function to sign out from Google
+    fun signOutFromGoogle() {
+        // Implementation will go here
+        println("Signing out from Google...")
+    }
+
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text(
@@ -1367,21 +1379,32 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Un
                     
                     // Google Sign In section
                     Text("Синхронизация с Google", fontWeight = FontWeight.SemiBold)
-                    GoogleSignInButton(
-                        onSignInSuccess = { account ->
-                            // Handle successful sign-in
-                            vm.setGoogleSync(true)
-                            // Here we would typically store the account info
-                        },
-                        onSignInFailed = {
-                            // Handle sign-in failure
-                            println("Google Sign In failed")
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    
-                    Button(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-                        Text("Выйти из аккаунта")
+                    if (settings.googleSyncEnabled) {
+                        Text("Вход выполнен: ${getCurrentUserEmail()}")
+                        Button(
+                            onClick = {
+                                // Sign out from Google account
+                                signOutFromGoogle()
+                                vm.setGoogleSync(false)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Выйти из аккаунта")
+                        }
+                    } else {
+                        GoogleSignInButton(
+                            onSignInSuccess = { account ->
+                                // Handle successful sign-in
+                                vm.setGoogleSync(true)
+                                // Store the account info in settings
+                                vm.updateCurrentUserEmail(account.email ?: "")
+                            },
+                            onSignInFailed = {
+                                // Handle sign-in failure
+                                println("Google Sign In failed")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
