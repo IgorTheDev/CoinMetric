@@ -1,44 +1,26 @@
 {
   "project_info": {
-    "project_number": "123456789012",
-    "project_id": "coinmetric-sample",
-    "storage_bucket": "coinmetric-sample.appspot.com"
+    "project_number": "430778214866",
+    "project_id": "coinmetric",
+    "storage_bucket": "coinmetric.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:0000000000000000",
+        "mobilesdk_app_id": "1:430778214866:android:aa0419ea725701bbf7000b",
         "android_client_info": {
           "package_name": "com.coinmetric"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.coinmetric",
-            "certificate_hash": "0000000000000000000000000000000000000000"
-          }
-        },
-        {
-          "client_id": "123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ"
+          "current_key": "AIzaSyA0VEjMuV6GdQ7W8BKvYOFrjNNLmvNrd3I"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }
