@@ -30,6 +30,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -37,9 +41,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +65,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -94,6 +101,13 @@ private data class HeaderConfig(
 
 @Composable
 fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
+    val context = LocalContext.current
+    val onboardingPrefs = remember(context) { context.getSharedPreferences("coinmetric_prefs", android.content.Context.MODE_PRIVATE) }
+    LaunchedEffect(vm) {
+        val onboardingCompleted = onboardingPrefs.getBoolean("onboarding_completed", false)
+        vm.setOnboardingVisible(!onboardingCompleted)
+    }
+
     val settings by vm.settings.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -133,7 +147,9 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                     startDestination = Screen.Dashboard.route,
                 ) {
                     composable(Screen.Dashboard.route) {
-                        DashboardScreen(vm)
+                        DashboardScreen(vm = vm, onOnboardingDismissed = {
+                            onboardingPrefs.edit().putBoolean("onboarding_completed", true).apply()
+                        })
                     }
                     composable(Screen.Calendar.route) {
                         CalendarScreen(vm) { navController.navigate(Screen.Add.route) }
@@ -148,7 +164,12 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                         )
                     }
                     composable(Screen.Settings.route) {
-                        SettingsScreen(vm)
+                        SettingsScreen(
+                            vm = vm,
+                            onOnboardingVisibilityChanged = { isVisible ->
+                                onboardingPrefs.edit().putBoolean("onboarding_completed", !isVisible).apply()
+                            },
+                        )
                     }
                 }
             }
@@ -275,7 +296,7 @@ private fun HeaderTitle(route: String, onCancelAdd: () -> Unit) {
 }
 
 @Composable
-private fun DashboardScreen(vm: CoinMetricViewModel) {
+private fun DashboardScreen(vm: CoinMetricViewModel, onOnboardingDismissed: () -> Unit) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
 
@@ -290,7 +311,10 @@ private fun DashboardScreen(vm: CoinMetricViewModel) {
                         Text("Быстрый старт", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text("1) Добавьте первую операцию через кнопку «Добавить».\n2) Укажите лимиты и следите за прогрессом.\n3) Включите семейный доступ в настройках для совместного бюджета.")
                         Button(
-                            onClick = vm::dismissOnboarding,
+                            onClick = {
+                                vm.dismissOnboarding()
+                                onOnboardingDismissed()
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("Понятно")
@@ -412,6 +436,7 @@ private fun MetricCard(title: String, value: String, modifier: Modifier = Modifi
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
     val state by vm.addState.collectAsStateWithLifecycle()
@@ -473,18 +498,59 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 }
             }
             item {
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = state.category,
-                    onValueChange = vm::updateCategory,
-                    enabled = canEditTransactions,
-                    label = { Text("Категория") },
-                    isError = state.categoryError != null,
-                    singleLine = true,
-                    supportingText = {
-                        state.categoryError?.let { Text(it) }
-                    },
-                )
+                var categoriesExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = categoriesExpanded,
+                    onExpandedChange = { if (canEditTransactions) categoriesExpanded = !categoriesExpanded },
+                ) {
+                    OutlinedTextField(
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        value = state.category,
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = canEditTransactions,
+                        label = { Text("Категория") },
+                        isError = state.categoryError != null,
+                        singleLine = true,
+                        supportingText = {
+                            state.categoryError?.let { Text(it) }
+                        },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoriesExpanded)
+                        },
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoriesExpanded,
+                        onDismissRequest = { categoriesExpanded = false },
+                    ) {
+                        state.categories.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category) },
+                                onClick = {
+                                    vm.updateCategory(category)
+                                    categoriesExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        modifier = Modifier.weight(1f),
+                        value = state.newCategoryName,
+                        onValueChange = vm::updateNewCategoryName,
+                        enabled = canEditTransactions,
+                        label = { Text("Новая категория") },
+                        singleLine = true,
+                    )
+                    Button(onClick = vm::addNewCategory, enabled = canEditTransactions) {
+                        Text("Добавить")
+                    }
+                }
             }
             item {
                 OutlinedTextField(
@@ -808,19 +874,31 @@ private fun CalendarScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        vm.startEditingTransaction(tx)
-                                        openAddScreen()
-                                    }
                                     .padding(vertical = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            vm.startEditingTransaction(tx)
+                                            openAddScreen()
+                                        },
+                                ) {
                                     Text(tx.title, fontWeight = FontWeight.Medium)
                                     Text(tx.category, style = MaterialTheme.typography.bodySmall)
                                 }
-                                Text("$sign${kotlin.math.abs(tx.amount).toRubCurrency()}")
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("$sign${kotlin.math.abs(tx.amount).toRubCurrency()}")
+                                    IconButton(onClick = { vm.deleteTransaction(tx) }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Delete,
+                                            contentDescription = "Удалить транзакцию",
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -902,7 +980,7 @@ fun CalendarView(
 }
 
 @Composable
-private fun SettingsScreen(vm: CoinMetricViewModel) {
+private fun SettingsScreen(vm: CoinMetricViewModel, onOnboardingVisibilityChanged: (Boolean) -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val canManageMembers = settings.currentUserRole == "owner"
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -920,7 +998,10 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                     SettingRow("Тёмная тема", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
                     SettingRow("Синхронизация Google", settings.googleSyncEnabled) { vm.setGoogleSync(it) }
                     SettingRow("Офлайн-режим", settings.isOfflineMode) { vm.setOfflineMode(it) }
-                    SettingRow("Показывать подсказки", settings.showOnboarding) { vm.setOnboardingVisible(it) }
+                    SettingRow("Показывать подсказки", settings.showOnboarding) {
+                        vm.setOnboardingVisible(it)
+                        onOnboardingVisibilityChanged(it)
+                    }
 
                     val syncStatus = when {
                         settings.isSyncInProgress -> "Синхронизация выполняется..."
@@ -1229,7 +1310,7 @@ private fun CoinMetricRootPreview() {
 @Composable
 private fun DashboardScreenPreview() {
     CoinMetricTheme {
-        DashboardScreen(vm = CoinMetricViewModel())
+        DashboardScreen(vm = CoinMetricViewModel(), onOnboardingDismissed = {})
     }
 }
 
@@ -1261,6 +1342,6 @@ private fun CalendarScreenPreview() {
 @Composable
 private fun SettingsScreenPreview() {
     CoinMetricTheme {
-        SettingsScreen(vm = CoinMetricViewModel())
+        SettingsScreen(vm = CoinMetricViewModel(), onOnboardingVisibilityChanged = {})
     }
 }

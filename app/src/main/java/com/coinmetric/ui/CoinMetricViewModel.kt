@@ -46,6 +46,8 @@ data class AddTransactionState(
     val amount: String = "",
     val category: String = "",
     val note: String = "",
+    val categories: List<String> = emptyList(),
+    val newCategoryName: String = "",
     val isIncome: Boolean = false,
     val amountError: String? = null,
     val categoryError: String? = null,
@@ -91,6 +93,8 @@ class CoinMetricViewModel : ViewModel() {
         SampleTransaction("Зарплата", 85000, "2023-10-25", "Доход", true),
     )
 
+    private val categories = mutableListOf("Еда", "Транспорт", "Досуг", "Коммунальные", "Доход")
+
     private val _dashboard = MutableStateFlow(DashboardState())
     val dashboard: StateFlow<DashboardState> = _dashboard.asStateFlow()
 
@@ -101,6 +105,8 @@ class CoinMetricViewModel : ViewModel() {
     val settings: StateFlow<SettingsState> = _settings.asStateFlow()
 
     init {
+        syncCategoriesWithTransactions()
+        _addState.value = _addState.value.copy(categories = categories.toList())
         viewModelScope.launch {
             delay(800)
             _dashboard.value = buildDashboardState(isLoading = false)
@@ -128,6 +134,33 @@ class CoinMetricViewModel : ViewModel() {
             categoryError = null,
             error = null,
             successMessage = null,
+        )
+    }
+
+    fun updateNewCategoryName(value: String) {
+        _addState.value = _addState.value.copy(newCategoryName = value, error = null)
+    }
+
+    fun addNewCategory() {
+        val state = _addState.value
+        val categoryName = state.newCategoryName.trim()
+        if (categoryName.isBlank()) {
+            _addState.value = state.copy(error = "Введите название категории")
+            return
+        }
+        val exists = categories.any { it.equals(categoryName, ignoreCase = true) }
+        if (exists) {
+            _addState.value = state.copy(error = "Такая категория уже существует")
+            return
+        }
+
+        categories.add(categoryName)
+        categories.sortBy { it.lowercase(Locale.getDefault()) }
+        _addState.value = state.copy(
+            categories = categories.toList(),
+            category = categoryName,
+            newCategoryName = "",
+            error = null,
         )
     }
 
@@ -180,9 +213,17 @@ class CoinMetricViewModel : ViewModel() {
             ))
         }
 
+        if (categories.none { it.equals(state.category, ignoreCase = true) }) {
+            categories.add(state.category)
+            categories.sortBy { it.lowercase(Locale.getDefault()) }
+        }
+
         _dashboard.value = buildDashboardState(isLoading = false)
         enqueueSyncChanges(1)
-        _addState.value = AddTransactionState(successMessage = "Операция сохранена")
+        _addState.value = AddTransactionState(
+            categories = categories.toList(),
+            successMessage = "Операция сохранена",
+        )
         onSuccess()
     }
     
@@ -191,14 +232,23 @@ class CoinMetricViewModel : ViewModel() {
         _addState.value = AddTransactionState(
             id = id,
             amount = kotlin.math.abs(transaction.amount).toString(),
+            categories = categories.toList(),
             category = transaction.category,
             note = transaction.title,
             isIncome = transaction.income,
         )
     }
+
+    fun deleteTransaction(transaction: SampleTransaction) {
+        val index = transactions.indexOf(transaction)
+        if (index == -1) return
+        transactions.removeAt(index)
+        _dashboard.value = buildDashboardState(isLoading = false)
+        enqueueSyncChanges(1)
+    }
     
     fun resetAddState() {
-        _addState.value = AddTransactionState()
+        _addState.value = AddTransactionState(categories = categories.toList())
     }
 
     fun setDarkTheme(enabled: Boolean) {
@@ -313,5 +363,15 @@ class CoinMetricViewModel : ViewModel() {
                 "$sign${kotlin.math.abs(tx.amount).toRubCurrency()} · ${tx.title} · ${tx.date}"
             },
         )
+    }
+
+    private fun syncCategoriesWithTransactions() {
+        val txCategories = transactions.map { it.category }.distinct()
+        txCategories.forEach { categoryName ->
+            if (categories.none { it.equals(categoryName, ignoreCase = true) }) {
+                categories.add(categoryName)
+            }
+        }
+        categories.sortBy { it.lowercase(Locale.getDefault()) }
     }
 }
