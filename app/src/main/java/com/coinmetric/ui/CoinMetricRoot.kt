@@ -434,106 +434,113 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
     var expression by remember { mutableStateOf(state.amount) }
     val canEditTransactions = settings.currentUserRole == "owner" || settings.currentUserRole == "editor"
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Text(
-                "Введите сумму, выберите категорию и сохраните операцию",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        item {
-            OutlinedTextField(
-                modifier = Modifier.fillMaxWidth(),
-                value = state.amount,
-                onValueChange = vm::updateAmount,
-                enabled = canEditTransactions,
-                label = { Text("Сумма") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError = state.amountError != null,
-                singleLine = true,
-                supportingText = {
-                    state.amountError?.let { Text(it) }
-                },
-                trailingIcon = {
-                    IconButton(onClick = {
-                        calculatorExpanded = !calculatorExpanded
-                        if (calculatorExpanded) expression = state.amount
-                    }) {
-                        Text("🧮", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
-                    }
-                }
-            )
-
-            if (calculatorExpanded) {
-                CalculatorPad(
-                    expression = expression,
-                    onExpressionChange = { expression = it },
-                    onApply = {
-                        val result = runCatching { evalMathExpression(expression) }.getOrNull()
-                        if (result != null && result >= 0) {
-                            vm.updateAmount(result.toInt().toString())
-                            expression = result.toInt().toString()
-                            calculatorExpanded = false
-                        }
-                    },
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-        }
-        item {
-            OutlinedTextField(
-                modifier = Modifier.fillMaxWidth(),
-                value = state.category,
-                onValueChange = vm::updateCategory,
-                enabled = canEditTransactions,
-                label = { Text("Категория") },
-                isError = state.categoryError != null,
-                singleLine = true,
-                supportingText = {
-                    state.categoryError?.let { Text(it) }
-                },
-            )
-        }
-        item {
-            OutlinedTextField(
-                modifier = Modifier.fillMaxWidth(),
-                value = state.note,
-                onValueChange = vm::updateNote,
-                enabled = canEditTransactions,
-                label = { Text("Заметка") },
-            )
-        }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Доход")
-                Switch(checked = state.isIncome, onCheckedChange = vm::updateIncomeFlag, enabled = canEditTransactions)
-            }
-        }
-        if (!canEditTransactions) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 96.dp),
+        ) {
             item {
                 Text(
-                    "Роль просмотра не позволяет добавлять операции. Обратитесь к владельцу за правами редактора.",
-                    color = MaterialTheme.colorScheme.error,
+                    "Введите сумму, выберите категорию и сохраните операцию",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-        state.error?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.error) }
-        }
-        state.successMessage?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.primary) }
-        }
-        item {
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { vm.saveTransaction(goToDashboard) },
-                enabled = canEditTransactions,
-            ) {
-                Text(if (state.id == null) "Сохранить" else "Сохранить изменения")
+            item {
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = state.amount,
+                    onValueChange = vm::updateAmount,
+                    enabled = canEditTransactions,
+                    label = { Text("Сумма") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = state.amountError != null,
+                    singleLine = true,
+                    supportingText = {
+                        state.amountError?.let { Text(it) }
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            calculatorExpanded = !calculatorExpanded
+                            if (calculatorExpanded) expression = state.amount
+                        }) {
+                            Text("🧮", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
+                        }
+                    }
+                )
+
+                if (calculatorExpanded) {
+                    CalculatorPad(
+                        expression = expression,
+                        onExpressionChange = { expression = it },
+                        onApply = {
+                            val result = runCatching { evalMathExpression(expression) }.getOrNull()
+                            if (result != null && result >= 0) {
+                                vm.updateAmount(result.toInt().toString())
+                                expression = result.toInt().toString()
+                                calculatorExpanded = false
+                            }
+                        },
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+            item {
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = state.category,
+                    onValueChange = vm::updateCategory,
+                    enabled = canEditTransactions,
+                    label = { Text("Категория") },
+                    isError = state.categoryError != null,
+                    singleLine = true,
+                    supportingText = {
+                        state.categoryError?.let { Text(it) }
+                    },
+                )
+            }
+            item {
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = state.note,
+                    onValueChange = vm::updateNote,
+                    enabled = canEditTransactions,
+                    label = { Text("Заметка") },
+                )
+            }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Доход")
+                    Switch(checked = state.isIncome, onCheckedChange = vm::updateIncomeFlag, enabled = canEditTransactions)
+                }
+            }
+            if (!canEditTransactions) {
+                item {
+                    Text(
+                        "Роль просмотра не позволяет добавлять операции. Обратитесь к владельцу за правами редактора.",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            state.error?.let { message ->
+                item { Text(message, color = MaterialTheme.colorScheme.error) }
+            }
+            state.successMessage?.let { message ->
+                item { Text(message, color = MaterialTheme.colorScheme.primary) }
             }
         }
-        item { Spacer(Modifier.height(16.dp)) }
+
+        Button(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            onClick = { vm.saveTransaction(goToDashboard) },
+            enabled = canEditTransactions,
+        ) {
+            Text(if (state.id == null) "Сохранить" else "Сохранить изменения")
+        }
     }
 }
 
