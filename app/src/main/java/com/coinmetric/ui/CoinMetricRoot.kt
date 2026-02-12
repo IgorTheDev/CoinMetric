@@ -80,11 +80,11 @@ import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.PercentFormatter
 
 private sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    data object Dashboard : Screen("/", "Главная", Icons.Filled.Home)
-    data object Calendar : Screen("/calendar", "Календарь", Icons.Filled.CalendarMonth)
-    data object Add : Screen("/add", "Добавить", Icons.Filled.AddCircle)
-    data object Analytics : Screen("/analytics", "Аналитика", Icons.Filled.Analytics)
-    data object Settings : Screen("/settings", "Настройки", Icons.Filled.Settings)
+    data object Dashboard : Screen("dashboard", "Главная", Icons.Filled.Home)
+    data object Calendar : Screen("calendar", "Календарь", Icons.Filled.CalendarMonth)
+    data object Add : Screen("add", "Добавить", Icons.Filled.AddCircle)
+    data object Analytics : Screen("analytics", "Аналитика", Icons.Filled.Analytics)
+    data object Settings : Screen("settings", "Настройки", Icons.Filled.Settings)
 }
 
 private data class HeaderConfig(
@@ -162,16 +162,33 @@ private fun CoinMetricBottomNavigation(
     currentDestinationRoute: String,
     onNavigate: (String) -> Unit,
 ) {
+    val screens = listOf(
+        Screen.Dashboard,
+        Screen.Calendar,
+        Screen.Add,
+        Screen.Analytics,
+        Screen.Settings,
+    )
+
     NavigationBar {
-        val leftScreens = listOf(Screen.Dashboard, Screen.Calendar)
-        val rightScreens = listOf(Screen.Analytics, Screen.Settings)
-
-        leftScreens.forEach { screen ->
+        screens.forEach { screen ->
             NavigationBarItem(
                 selected = currentDestinationRoute == screen.route,
                 onClick = { onNavigate(screen.route) },
                 icon = {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                    if (screen == Screen.Add) {
+                        FloatingActionButton(
+                            onClick = { onNavigate(Screen.Add.route) },
+                            modifier = Modifier.size(56.dp),
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ) {
+                            Icon(
+                                imageVector = screen.icon,
+                                contentDescription = screen.label,
+                            )
+                        }
+                    } else {
                         Icon(
                             imageVector = screen.icon,
                             contentDescription = screen.label,
@@ -179,43 +196,7 @@ private fun CoinMetricBottomNavigation(
                     }
                 },
                 label = null,
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxSize(),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            FloatingActionButton(
-                onClick = { onNavigate(Screen.Add.route) },
-                modifier = Modifier
-                    .padding(bottom = 2.dp)
-                    .size(56.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) {
-                Icon(
-                    imageVector = Screen.Add.icon,
-                    contentDescription = Screen.Add.label,
-                )
-            }
-        }
-
-        rightScreens.forEach { screen ->
-            NavigationBarItem(
-                selected = currentDestinationRoute == screen.route,
-                onClick = { onNavigate(screen.route) },
-                icon = {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                        Icon(
-                            imageVector = screen.icon,
-                            contentDescription = screen.label,
-                        )
-                    }
-                },
-                label = null,
+                alwaysShowLabel = false,
             )
         }
     }
