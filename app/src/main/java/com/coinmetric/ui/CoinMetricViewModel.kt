@@ -110,6 +110,10 @@ data class FamilyInviteUiModel(
 )
 
 class CoinMetricViewModel : ViewModel() {
+    private val allowedRoles = setOf("owner", "editor", "viewer")
+    private val allowedInviteRoles = setOf("editor", "viewer")
+    private val allowedSubscriptionPlans = setOf("free", "pro")
+
     private val transactions = mutableListOf(
         SampleTransaction("Продукты", -1800, "2023-10-27", "Еда", false),
         SampleTransaction("Кафе", -560, "2023-10-26", "Досуг", false),
@@ -185,6 +189,10 @@ class CoinMetricViewModel : ViewModel() {
 
     fun addNewCategory() {
         val state = _categoriesState.value
+        if (_settings.value.currentUserRole == "viewer") {
+            _categoriesState.value = state.copy(error = "Роль просмотра не позволяет добавлять категории", successMessage = null)
+            return
+        }
         val categoryName = state.newCategoryName.trim()
         if (categoryName.isBlank()) {
             _categoriesState.value = state.copy(error = "Введите название категории", successMessage = null)
@@ -235,6 +243,10 @@ class CoinMetricViewModel : ViewModel() {
 
     fun saveMonthlyLimit() {
         val state = _categoriesState.value
+        if (_settings.value.currentUserRole == "viewer") {
+            _categoriesState.value = state.copy(error = "Роль просмотра не позволяет изменять лимиты", successMessage = null)
+            return
+        }
         if (state.selectedCategory.isBlank()) {
             _categoriesState.value = state.copy(error = "Выберите категорию", successMessage = null)
             return
@@ -403,6 +415,7 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setSubscriptionPlan(plan: String) {
+        if (!allowedSubscriptionPlans.contains(plan)) return
         _settings.value = _settings.value.copy(subscriptionPlan = plan)
         appendActivityLog(
             action = "План подписки",
@@ -414,7 +427,7 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setPinProtectionEnabled(enabled: Boolean) {
-        _settings.value = _settings.value.copy(pinProtectionEnabled = enabled)
+        _settings.value = _settings.value.copy(pinProtectionEnabled = enabled, syncError = null)
         appendActivityLog(
             action = "PIN-защита",
             target = if (enabled) "Включена" else "Отключена",
@@ -442,6 +455,10 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun completeSecuritySetup() {
+        if (!_settings.value.pinProtectionEnabled) {
+            _settings.value = _settings.value.copy(syncError = "Для завершения включите PIN-защиту")
+            return
+        }
         _settings.value = _settings.value.copy(securitySetupCompleted = true)
         appendActivityLog(
             action = "Мастер безопасности",
@@ -457,6 +474,10 @@ class CoinMetricViewModel : ViewModel() {
         _settings.value = _settings.value.copy(
             isOfflineMode = enabled,
             syncError = if (enabled) "Автономный режим активен" else null,
+        )
+        appendActivityLog(
+            action = "Автономный режим",
+            target = if (enabled) "Включен" else "Отключен",
         )
         if (!enabled) processSyncQueue()
     }
@@ -478,7 +499,11 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun updateInviteRole(role: String) {
-        _settings.value = _settings.value.copy(inviteRole = role)
+        _settings.value = _settings.value.copy(inviteRole = if (allowedInviteRoles.contains(role)) role else "editor")
+    }
+
+    fun clearInviteFeedback() {
+        _settings.value = _settings.value.copy(inviteError = null, inviteSuccessMessage = null)
     }
 
     fun sendFamilyInvite() {
@@ -487,9 +512,20 @@ class CoinMetricViewModel : ViewModel() {
             _settings.value = current.copy(inviteError = "Только владелец может отправлять приглашения")
             return
         }
-        val email = current.inviteEmail.trim()
+        val email = current.inviteEmail.trim().lowercase(Locale.getDefault())
         if (email.isBlank() || !email.contains("@")) {
             _settings.value = current.copy(inviteError = "Некорректный email")
+            return
+        }
+        if (!allowedInviteRoles.contains(current.inviteRole)) {
+            _settings.value = current.copy(inviteError = "Некорректная роль приглашения")
+            return
+        }
+        val duplicateInvite = current.pendingInvites.any {
+            it.email.equals(email, ignoreCase = true) && it.status == "Ожидает принятия"
+        }
+        if (duplicateInvite) {
+            _settings.value = current.copy(inviteError = "Для этого email уже есть активное приглашение")
             return
         }
 
@@ -501,6 +537,33 @@ class CoinMetricViewModel : ViewModel() {
         appendActivityLog(
             action = "Отправка приглашения",
             target = "$email (${current.inviteRole})",
+        )
+    }
+
+    fun revokeFamilyInvite(email: String) {
+        val current = _settings.value
+        if (current.currentUserRole != "owner") {
+            _settings.value = current.copy(inviteError = "Только владелец может отзывать приглашения")
+            return
+        }
+        val invite = current.pendingInvites.firstOrNull { it.email.equals(email, ignoreCase = true) }
+        if (invite == null) {
+            _settings.value = current.copy(inviteError = "Приглашение не найдено")
+            return
+        }
+        if (invite.status != "Ожидает принятия") {
+            _settings.value = current.copy(inviteError = "Можно отозвать только ожидающее приглашение")
+            return
+        }
+        val updated = current.pendingInvites.filterNot { it.email.equals(email, ignoreCase = true) }
+        _settings.value = current.copy(
+            pendingInvites = updated,
+            inviteError = null,
+            inviteSuccessMessage = "Приглашение для $email отозвано",
+        )
+        appendActivityLog(
+            action = "Отзыв приглашения",
+            target = email,
         )
     }
 
@@ -527,6 +590,10 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setCurrentUserRole(role: String) {
+        if (!allowedRoles.contains(role)) {
+            _settings.value = _settings.value.copy(inviteError = "Некорректная роль пользователя")
+            return
+        }
         _settings.value = _settings.value.copy(currentUserRole = role)
         appendActivityLog(
             action = "Смена роли",
