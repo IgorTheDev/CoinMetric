@@ -95,4 +95,31 @@ class CoinMetricViewModelInviteTest {
         )
     }
 
+    @Test
+    fun sendFamilyInvite_writesActivityLog() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("audit@example.com")
+
+        vm.sendFamilyInvite()
+
+        val log = vm.settings.value.activityLog.first()
+        assertEquals("Владелец", log.actor)
+        assertEquals("Отправка приглашения", log.action)
+        assertTrue(log.target.contains("audit@example.com"))
+    }
+
+    @Test
+    fun saveTransaction_writesCreateActivityLog() {
+        val vm = CoinMetricViewModel()
+        vm.updateAmount("2100")
+        vm.updateCategory("Транспорт")
+        vm.updateNote("Такси")
+
+        vm.saveTransaction(onSuccess = {})
+
+        val log = vm.settings.value.activityLog.first()
+        assertEquals("Создание операции", log.action)
+        assertTrue(log.target.contains("Транспорт"))
+    }
+
 }
