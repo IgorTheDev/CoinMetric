@@ -59,6 +59,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -1235,4 +1236,50 @@ fun evalMathExpression(expr: String): Double {
     }
 
     return values.lastOrNull() ?: 0.0
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun CoinMetricRootPreview() {
+    CoinMetricRoot(vm = CoinMetricViewModel())
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun DashboardScreenPreview() {
+    CoinMetricTheme {
+        DashboardScreen(vm = CoinMetricViewModel())
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun AddScreenPreview() {
+    CoinMetricTheme {
+        AddScreen(vm = CoinMetricViewModel(), goToDashboard = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun AnalyticsScreenPreview() {
+    CoinMetricTheme {
+        AnalyticsScreen(vm = CoinMetricViewModel(), openAddScreen = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun CalendarScreenPreview() {
+    CoinMetricTheme {
+        CalendarScreen(vm = CoinMetricViewModel(), openAddScreen = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SettingsScreenPreview() {
+    CoinMetricTheme {
+        SettingsScreen(vm = CoinMetricViewModel())
+    }
 }
