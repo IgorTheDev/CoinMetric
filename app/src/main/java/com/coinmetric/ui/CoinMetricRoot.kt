@@ -535,7 +535,7 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
 
                     val syncStatus = when {
                         settings.isSyncInProgress -> "Синхронизация выполняется..."
-                        settings.syncError != null -> settings.syncError
+                        settings.syncError != null -> settings.syncError ?: "Ошибка синхронизации"
                         settings.pendingSyncItems > 0 -> "Ожидают отправки: ${settings.pendingSyncItems}"
                         settings.lastSyncTimeLabel != null -> "Последняя синхронизация: ${settings.lastSyncTimeLabel}"
                         else -> "Локальная база готова к работе офлайн"
