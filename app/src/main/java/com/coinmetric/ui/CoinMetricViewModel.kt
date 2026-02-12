@@ -11,7 +11,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private data class SampleTransaction(
+data class SampleTransaction(
     val title: String,
     val amount: Int,
     val date: String,
