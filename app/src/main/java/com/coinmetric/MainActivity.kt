@@ -18,6 +18,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_START_ROUTE = "coinmetric_start_route"
+        const val ROUTE_HOME = "home"
         const val ROUTE_ANALYTICS = "analytics"
     }
 }
