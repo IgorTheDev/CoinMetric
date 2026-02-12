@@ -244,6 +244,13 @@ class CoinMetricViewModel : ViewModel() {
 
     fun saveTransaction(onSuccess: () -> Unit) {
         val state = _addState.value
+        if (_settings.value.currentUserRole == "viewer") {
+            _addState.value = state.copy(
+                error = "Роль просмотра не позволяет добавлять или редактировать операции",
+                successMessage = null,
+            )
+            return
+        }
         val amountValue = state.amount.replace(",", ".").toDoubleOrNull()?.toInt()
         val amountError = if (amountValue == null || amountValue <= 0) "Введите корректную сумму" else null
         val categoryError = if (state.category.isBlank()) "Укажите категорию" else null
@@ -262,6 +269,8 @@ class CoinMetricViewModel : ViewModel() {
         val signedAmount = if (state.isIncome) validAmount else -validAmount
         val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         
+        val action = if (state.id != null) "Редактирование операции" else "Создание операции"
+
         if (state.id != null) {
             val index = transactions.indexOfFirst { it.hashCode().toString() == state.id }
             if (index != -1) {
@@ -293,6 +302,10 @@ class CoinMetricViewModel : ViewModel() {
 
         _dashboard.value = buildDashboardState(isLoading = false)
         enqueueSyncChanges(1)
+        appendActivityLog(
+            action = action,
+            target = "${state.category}: ${signedAmount.toRubCurrency()}",
+        )
         _addState.value = AddTransactionState(
             categories = categories.toList(),
             successMessage = "Операция сохранена",
@@ -363,6 +376,10 @@ class CoinMetricViewModel : ViewModel() {
 
     fun sendFamilyInvite() {
         val current = _settings.value
+        if (current.currentUserRole != "owner") {
+            _settings.value = current.copy(inviteError = "Только владелец может отправлять приглашения")
+            return
+        }
         val email = current.inviteEmail.trim()
         if (email.isBlank() || !email.contains("@")) {
             _settings.value = current.copy(inviteError = "Некорректный email")
@@ -372,19 +389,42 @@ class CoinMetricViewModel : ViewModel() {
         _settings.value = current.copy(
             inviteEmail = "",
             inviteSuccessMessage = "Приглашение отправлено $email",
-            pendingInvites = listOf(FamilyInviteUiModel(email, current.inviteRole, "Ожидает")) + current.pendingInvites
+            pendingInvites = listOf(FamilyInviteUiModel(email, current.inviteRole, "Ожидает принятия")) + current.pendingInvites
+        )
+        appendActivityLog(
+            action = "Отправка приглашения",
+            target = "$email (${current.inviteRole})",
         )
     }
 
     fun updateInviteStatus(email: String, newStatus: String) {
-        val updated = _settings.value.pendingInvites.map {
+        val current = _settings.value
+        val invite = current.pendingInvites.firstOrNull { it.email == email }
+        if (invite == null) {
+            _settings.value = current.copy(inviteError = "Приглашение не найдено")
+            return
+        }
+        if (invite.status != "Ожидает принятия") {
+            _settings.value = current.copy(inviteError = "Статус уже обновлён")
+            return
+        }
+
+        val updated = current.pendingInvites.map {
             if (it.email == email) it.copy(status = newStatus) else it
         }
-        _settings.value = _settings.value.copy(pendingInvites = updated)
+        _settings.value = current.copy(pendingInvites = updated, inviteError = null)
+        appendActivityLog(
+            action = "Обновление статуса приглашения",
+            target = "$email → $newStatus",
+        )
     }
 
     fun setCurrentUserRole(role: String) {
         _settings.value = _settings.value.copy(currentUserRole = role)
+        appendActivityLog(
+            action = "Смена роли",
+            target = mapRoleLabel(role),
+        )
     }
 
     private fun enqueueSyncChanges(itemsCount: Int) {
@@ -446,5 +486,29 @@ class CoinMetricViewModel : ViewModel() {
             }
         }
         categories.sortBy { it.lowercase(Locale.getDefault()) }
+    }
+
+    private fun appendActivityLog(action: String, target: String) {
+        val settings = _settings.value
+        val actor = mapRoleLabel(settings.currentUserRole)
+        val createdAt = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(Date())
+        _settings.value = settings.copy(
+            activityLog = listOf(
+                ActivityLogUiModel(
+                    actor = actor,
+                    action = action,
+                    target = target,
+                    createdAtLabel = createdAt,
+                )
+            ) + settings.activityLog,
+            inviteError = null,
+        )
+    }
+
+    private fun mapRoleLabel(role: String): String = when (role) {
+        "owner" -> "Владелец"
+        "editor" -> "Редактор"
+        "viewer" -> "Наблюдатель"
+        else -> role
     }
 }
