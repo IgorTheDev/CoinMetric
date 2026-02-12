@@ -82,7 +82,6 @@ data class LimitAlertUiModel(
 
 data class SettingsState(
     val darkThemeEnabled: Boolean = false,
-    val googleSyncEnabled: Boolean = true,
     val recurringRemindersEnabled: Boolean = true,
     val showOnboarding: Boolean = true,
     val isOfflineMode: Boolean = false,
@@ -413,18 +412,7 @@ class CoinMetricViewModel : ViewModel() {
         )
     }
 
-    fun setGoogleSync(enabled: Boolean) {
-        if (_settings.value.googleSyncEnabled == enabled) return
-        _settings.value = _settings.value.copy(
-            googleSyncEnabled = enabled,
-            syncError = if (!enabled) "Синхронизация отключена пользователем" else null,
-        )
-        appendActivityLog(
-            action = "Google Sync",
-            target = if (enabled) "Включен" else "Отключен",
-        )
-        if (enabled) processSyncQueue()
-    }
+
 
     fun setRecurringReminders(enabled: Boolean) {
         if (_settings.value.recurringRemindersEnabled == enabled) return
@@ -511,10 +499,6 @@ class CoinMetricViewModel : ViewModel() {
 
     fun retrySync() {
         val current = _settings.value
-        if (!current.googleSyncEnabled) {
-            _settings.value = current.copy(syncError = "Включите Google Sync для повторной отправки")
-            return
-        }
         if (current.isOfflineMode) {
             _settings.value = current.copy(syncError = "Отключите автономный режим для синхронизации")
             return
@@ -722,7 +706,7 @@ class CoinMetricViewModel : ViewModel() {
 
     private fun processSyncQueue() {
         val current = _settings.value
-        if (!current.googleSyncEnabled || current.pendingSyncItems == 0 || current.isSyncInProgress || current.isOfflineMode) return
+        if (current.pendingSyncItems == 0 || current.isSyncInProgress || current.isOfflineMode) return
 
         viewModelScope.launch {
             _settings.value = _settings.value.copy(isSyncInProgress = true)

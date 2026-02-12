@@ -89,7 +89,7 @@ import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.PercentFormatter
-import com.coinmetric.ui.components.GoogleSignInButton
+
 
 private sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     data object Dashboard : Screen("dashboard", "Главная", Icons.Filled.Home)
@@ -1159,11 +1159,7 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Un
         return settings.currentUserEmail.takeIf { it.isNotEmpty() } ?: "Аккаунт не указан"
     }
 
-    // Function to sign out from Google
-    fun signOutFromGoogle() {
-        // Implementation will go here
-        println("Signing out from Google...")
-    }
+
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -1383,27 +1379,18 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Un
                         Text("Вход выполнен: ${getCurrentUserEmail()}")
                         Button(
                             onClick = {
-                                // Sign out from Google account
-                                signOutFromGoogle()
                                 vm.setGoogleSync(false)
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Выйти из аккаунта")
+                            Text("Отключить синхронизацию")
                         }
                     } else {
-                        GoogleSignInButton(
-                            onSignInSuccess = { account ->
-                                // Handle successful sign-in
-                                vm.setGoogleSync(true)
-                                // Store the account info in settings
-                                vm.updateCurrentUserEmail(account.email ?: "")
-                            },
-                            onSignInFailed = {
-                                // Handle sign-in failure
-                                println("Google Sign In failed")
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                        Text(
+                            text = "Войдите в аккаунт для использования синхронизации",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
