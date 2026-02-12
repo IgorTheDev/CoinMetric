@@ -111,6 +111,13 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
     }
 
     val settings by vm.settings.collectAsStateWithLifecycle()
+    LaunchedEffect(settings.recurringRemindersEnabled) {
+        if (settings.recurringRemindersEnabled) {
+            RecurringReminderScheduler.schedule(context)
+        } else {
+            RecurringReminderScheduler.cancel(context)
+        }
+    }
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Dashboard.route
@@ -1270,6 +1277,35 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOnboardingVisibilityChange
                             }
                         }
                     }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Подписка и безопасность", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Управляйте тарифом и защитой входа для семейного бюджета.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text("Текущий план", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = settings.subscriptionPlan == "free",
+                            onClick = { vm.setSubscriptionPlan("free") },
+                            label = { Text("Free") },
+                        )
+                        FilterChip(
+                            selected = settings.subscriptionPlan == "pro",
+                            onClick = { vm.setSubscriptionPlan("pro") },
+                            label = { Text("Pro") },
+                        )
+                    }
+                    SettingRow("PIN-защита", settings.pinProtectionEnabled) { vm.setPinProtectionEnabled(it) }
+                    SettingRow(
+                        "Вход по биометрии",
+                        settings.biometricProtectionEnabled,
+                    ) { vm.setBiometricProtectionEnabled(it) }
                 }
             }
         }

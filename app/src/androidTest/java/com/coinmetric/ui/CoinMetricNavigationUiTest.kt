@@ -1,8 +1,10 @@
 package com.coinmetric.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.coinmetric.MainActivity
 import org.junit.Rule
@@ -23,5 +25,16 @@ class CoinMetricNavigationUiTest {
         composeRule.onNodeWithContentDescription("Категории").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Аналитика").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
+    }
+
+    @Test
+    fun viewerRoleCannotEditTransactions() {
+        composeRule.onNodeWithContentDescription("Настройки").performClick()
+        composeRule.onNodeWithText("Просмотр").performClick()
+        composeRule.onNodeWithContentDescription("Добавить").performClick()
+
+        composeRule.onNodeWithText(
+            "Роль просмотра не позволяет добавлять операции. Обратитесь к владельцу за правами редактора.",
+        ).assertIsDisplayed()
     }
 }

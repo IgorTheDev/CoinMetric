@@ -146,4 +146,36 @@ class CoinMetricViewModelInviteTest {
         assertEquals("Напоминания о платежах", vm.settings.value.activityLog.first().action)
     }
 
+    @Test
+    fun setSubscriptionPlan_updatesPlanAndWritesLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setSubscriptionPlan("pro")
+
+        assertEquals("pro", vm.settings.value.subscriptionPlan)
+        assertEquals("План подписки", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun setBiometricProtection_withoutPin_returnsError() {
+        val vm = CoinMetricViewModel()
+
+        vm.setBiometricProtectionEnabled(true)
+
+        assertEquals("Сначала включите PIN-защиту", vm.settings.value.syncError)
+        assertEquals(false, vm.settings.value.biometricProtectionEnabled)
+    }
+
+    @Test
+    fun setPinProtection_disablingPinTurnsOffBiometric() {
+        val vm = CoinMetricViewModel()
+
+        vm.setPinProtectionEnabled(true)
+        vm.setBiometricProtectionEnabled(true)
+        vm.setPinProtectionEnabled(false)
+
+        assertEquals(false, vm.settings.value.pinProtectionEnabled)
+        assertEquals(false, vm.settings.value.biometricProtectionEnabled)
+    }
+
 }
