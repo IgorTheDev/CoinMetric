@@ -174,27 +174,36 @@ private fun SyncSnapshot.toSyntheticChangeLog(source: String): List<SyncChangeLo
         addAll(limits.map { SyncChangeLog(SyncEntityType.LIMIT, it.id, it.updatedAtEpochMillis, "upsert", source) })
     }
 
-private fun com.google.firebase.firestore.DocumentSnapshot.toCategory(): Category? =
-    Category(
-        id = getLong("id") ?: return null,
-        name = getString("name") ?: return null,
+private fun com.google.firebase.firestore.DocumentSnapshot.toCategory(): Category? {
+    val id = getLong("id") ?: return null
+    val name = getString("name") ?: return null
+    return Category(
+        id = id,
+        name = name,
         colorHex = getString("colorHex") ?: "#4CAF50",
         updatedAtEpochMillis = getLong("updatedAt") ?: System.currentTimeMillis(),
     )
+}
 
-private fun com.google.firebase.firestore.DocumentSnapshot.toMember(): FamilyMember? =
-    FamilyMember(
-        id = getLong("id") ?: return null,
-        name = getString("name") ?: return null,
-        email = getString("email") ?: return null,
+private fun com.google.firebase.firestore.DocumentSnapshot.toMember(): FamilyMember? {
+    val id = getLong("id") ?: return null
+    val name = getString("name") ?: return null
+    val email = getString("email") ?: return null
+    return FamilyMember(
+        id = id,
+        name = name,
+        email = email,
         role = getString("role") ?: "member",
         updatedAtEpochMillis = getLong("updatedAt") ?: System.currentTimeMillis(),
     )
+}
 
-private fun com.google.firebase.firestore.DocumentSnapshot.toTransaction(): TransactionEntity? =
-    TransactionEntity(
-        id = getLong("id") ?: return null,
-        amount = getDouble("amount") ?: return null,
+private fun com.google.firebase.firestore.DocumentSnapshot.toTransaction(): TransactionEntity? {
+    val id = getLong("id") ?: return null
+    val amount = getDouble("amount") ?: return null
+    return TransactionEntity(
+        id = id,
+        amount = amount,
         note = getString("note") ?: "",
         categoryId = getLong("categoryId"),
         memberId = getLong("memberId"),
@@ -202,43 +211,61 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toTransaction(): Tran
         isIncome = getBoolean("isIncome") ?: false,
         updatedAtEpochMillis = getLong("updatedAt") ?: System.currentTimeMillis(),
     )
+}
 
-private fun com.google.firebase.firestore.DocumentSnapshot.toRecurring(): RecurringPayment? =
-    RecurringPayment(
-        id = getLong("id") ?: return null,
-        title = getString("title") ?: return null,
-        amount = getDouble("amount") ?: return null,
+private fun com.google.firebase.firestore.DocumentSnapshot.toRecurring(): RecurringPayment? {
+    val id = getLong("id") ?: return null
+    val title = getString("title") ?: return null
+    val amount = getDouble("amount") ?: return null
+    return RecurringPayment(
+        id = id,
+        title = title,
+        amount = amount,
         dayOfMonth = (getLong("dayOfMonth") ?: 1).toInt(),
         categoryId = getLong("categoryId"),
         active = getBoolean("active") ?: true,
         updatedAtEpochMillis = getLong("updatedAt") ?: System.currentTimeMillis(),
     )
+}
 
-private fun com.google.firebase.firestore.DocumentSnapshot.toInvite(): CollaborationInvite? =
-    CollaborationInvite(
-        id = getLong("id") ?: return null,
-        email = getString("email") ?: return null,
-        inviterName = getString("inviterName") ?: return null,
+private fun com.google.firebase.firestore.DocumentSnapshot.toInvite(): CollaborationInvite? {
+    val id = getLong("id") ?: return null
+    val email = getString("email") ?: return null
+    val inviterName = getString("inviterName") ?: return null
+    return CollaborationInvite(
+        id = id,
+        email = email,
+        inviterName = inviterName,
         role = getString("role") ?: "editor",
         status = getString("status") ?: "pending",
         createdAtEpochMillis = getLong("createdAt") ?: System.currentTimeMillis(),
         updatedAtEpochMillis = getLong("updatedAt") ?: System.currentTimeMillis(),
     )
+}
 
-private fun com.google.firebase.firestore.DocumentSnapshot.toLimit(): CategoryLimit? =
-    CategoryLimit(
-        id = getLong("id") ?: return null,
-        categoryId = getLong("categoryId") ?: return null,
-        monthlyLimit = getDouble("monthlyLimit") ?: return null,
-        monthKey = getString("monthKey") ?: return null,
+private fun com.google.firebase.firestore.DocumentSnapshot.toLimit(): CategoryLimit? {
+    val id = getLong("id") ?: return null
+    val categoryId = getLong("categoryId") ?: return null
+    val monthlyLimit = getDouble("monthlyLimit") ?: return null
+    val monthKey = getString("monthKey") ?: return null
+    return CategoryLimit(
+        id = id,
+        categoryId = categoryId,
+        monthlyLimit = monthlyLimit,
+        monthKey = monthKey,
         updatedAtEpochMillis = getLong("updatedAt") ?: System.currentTimeMillis(),
     )
+}
 
-private fun com.google.firebase.firestore.DocumentSnapshot.toChangeLog(): SyncChangeLog? =
-    SyncChangeLog(
-        entityType = getString("entityType") ?: return null,
-        entityId = getLong("entityId") ?: return null,
-        updatedAtEpochMillis = getLong("updatedAtEpochMillis") ?: return null,
+private fun com.google.firebase.firestore.DocumentSnapshot.toChangeLog(): SyncChangeLog? {
+    val entityType = getString("entityType") ?: return null
+    val entityId = getLong("entityId") ?: return null
+    val updatedAtEpochMillis = getLong("updatedAtEpochMillis") ?: return null
+    return SyncChangeLog(
+        entityType = entityType,
+        entityId = entityId,
+        updatedAtEpochMillis = updatedAtEpochMillis,
         action = getString("action") ?: "upsert",
         source = getString("source") ?: "remote",
     )
+}
