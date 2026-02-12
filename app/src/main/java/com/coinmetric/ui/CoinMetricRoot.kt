@@ -1098,6 +1098,36 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                 }
             }
         }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Журнал действий", fontWeight = FontWeight.SemiBold)
+                    if (settings.activityLog.isEmpty()) {
+                        Text(
+                            "Пока нет действий участников. После операций здесь появится история изменений.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        settings.activityLog.take(8).forEach { log ->
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("${log.actor} · ${log.action}", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    log.target,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    log.createdAtLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
         item { Spacer(Modifier.height(72.dp)) }
     }
 }
