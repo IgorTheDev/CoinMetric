@@ -1,6 +1,40 @@
-Nothing should be ignored in this case, as the changes only include:
-- Added: firebase_sync_logic.md (documentation file)
-- Deleted: GoogleSignInButton.kt (source code file)
-- Modified: README.md (documentation file)
+```
+# Compiled and build artifacts
+*.class
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.out
+build/
+target/
 
-These are all source/documentation files without any build artifacts, dependencies, or temporary files that would require gitignore entries.
+# Dependencies
+.gradle/
+node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and temp files
+*.log
+*.tmp
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.env.*
+```
