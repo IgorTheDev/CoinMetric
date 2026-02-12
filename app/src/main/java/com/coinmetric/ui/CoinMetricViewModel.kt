@@ -31,6 +31,7 @@ data class DashboardState(
     val expenseTrendText: String = "-12% к прошлой неделе",
     val latestTransactions: List<String> = emptyList(),
     val recentTransactions: List<TransactionUiModel> = emptyList(),
+    val allTransactions: List<TransactionUiModel> = emptyList(),
 )
 
 data class TransactionUiModel(
@@ -364,6 +365,16 @@ class CoinMetricViewModel : ViewModel() {
             income = totalIncome,
             expense = totalExpense,
             recentTransactions = transactions.take(5).map { tx ->
+                TransactionUiModel(
+                    id = tx.id,
+                    title = tx.title,
+                    amount = tx.amount,
+                    date = tx.date,
+                    category = tx.category,
+                    income = tx.income,
+                )
+            },
+            allTransactions = transactions.map { tx ->
                 TransactionUiModel(
                     id = tx.id,
                     title = tx.title,

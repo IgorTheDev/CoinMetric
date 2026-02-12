@@ -22,6 +22,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -31,6 +32,12 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,12 +66,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.coinmetric.ui.theme.CoinMetricTheme
 
-private sealed class Screen(val route: String, val label: String) {
-    data object Dashboard : Screen("/", "Главная")
-    data object Calendar : Screen("/calendar", "Календарь")
-    data object Add : Screen("/add", "Добавить")
-    data object Analytics : Screen("/analytics", "Аналитика")
-    data object Settings : Screen("/settings", "Настройки")
+private sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    data object Dashboard : Screen("/", "Главная", Icons.Filled.Home)
+    data object Calendar : Screen("/calendar", "Календарь", Icons.Filled.CalendarMonth)
+    data object Add : Screen("/add", "Добавить", Icons.Filled.AddCircle)
+    data object Analytics : Screen("/analytics", "Аналитика", Icons.Filled.Analytics)
+    data object Settings : Screen("/settings", "Настройки", Icons.Filled.Settings)
 }
 
 private data class HeaderConfig(
@@ -113,8 +120,13 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                                     restoreState = true
                                 }
                             },
-                            icon = { Text(screen.label.take(1)) },
-                            label = { Text(screen.label) },
+                            icon = {
+                                Icon(
+                                    imageVector = screen.icon,
+                                    contentDescription = screen.label,
+                                )
+                            },
+                            label = null,
                         )
                     }
                 }
@@ -135,7 +147,10 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                         AddScreen(vm) { navController.navigate(Screen.Dashboard.route) }
                     }
                     composable(Screen.Analytics.route) {
-                        AnalyticsScreen(vm)
+                        AnalyticsScreen(
+                            vm = vm,
+                            openAddScreen = { navController.navigate(Screen.Add.route) },
+                        )
                     }
                     composable(Screen.Settings.route) {
                         SettingsScreen(vm)
@@ -444,9 +459,9 @@ private fun CalculatorPad(
 }
 
 @Composable
-private fun AnalyticsScreen(vm: CoinMetricViewModel) {
+private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
-    val expensesByCategory = state.recentTransactions
+    val expensesByCategory = state.allTransactions
         .filterNot { it.income }
         .groupBy { it.category }
         .mapValues { (_, items) -> items.sumOf { kotlin.math.abs(it.amount) } }
@@ -485,7 +500,7 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel) {
         }
         item {
             Text(
-                "Краткая сводка распределения трат и статуса лимитов",
+                "Краткая сводка распределения трат, лимитов и всех операций",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -522,6 +537,50 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel) {
                 }
             }
         }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Все транзакции", fontWeight = FontWeight.SemiBold)
+                    if (state.allTransactions.isEmpty()) {
+                        Text("Пока нет операций")
+                    } else {
+                        state.allTransactions.forEach { tx ->
+                            val sign = if (tx.amount >= 0) "+" else "-"
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                        shape = MaterialTheme.shapes.medium,
+                                    )
+                                    .clickable {
+                                        vm.startEditingTransaction(tx)
+                                        openAddScreen()
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(tx.title, fontWeight = FontWeight.SemiBold)
+                                    Text(
+                                        "${tx.category} · ${tx.date}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Text(
+                                    "$sign${kotlin.math.abs(tx.amount).toRubCurrency()}",
+                                    color = if (tx.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
         item { Spacer(Modifier.height(72.dp)) }
     }
 }
@@ -529,9 +588,9 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel) {
 @Composable
 private fun CalendarScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
-    val transactions = state.recentTransactions
+    val transactions = state.allTransactions
     val datesWithTransactions = remember(transactions) { transactions.map { LocalDate.parse(it.date) }.toSet() }
-    var selectedDate by remember { mutableStateOf(datesWithTransactions.maxOrNull() ?: LocalDate.now()) }
+    var selectedDate by remember(transactions) { mutableStateOf(datesWithTransactions.maxOrNull() ?: LocalDate.now()) }
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
