@@ -170,10 +170,12 @@ private fun CoinMetricBottomNavigation(
                 selected = currentDestinationRoute == screen.route,
                 onClick = { onNavigate(screen.route) },
                 icon = {
-                    Icon(
-                        imageVector = screen.icon,
-                        contentDescription = screen.label,
-                    )
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        Icon(
+                            imageVector = screen.icon,
+                            contentDescription = screen.label,
+                        )
+                    }
                 },
                 label = null,
             )
@@ -183,12 +185,12 @@ private fun CoinMetricBottomNavigation(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxSize(),
-            contentAlignment = Alignment.TopCenter,
+            contentAlignment = Alignment.BottomCenter,
         ) {
             FloatingActionButton(
                 onClick = { onNavigate(Screen.Add.route) },
                 modifier = Modifier
-                    .padding(top = 2.dp)
+                    .padding(bottom = 2.dp)
                     .size(56.dp),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -205,10 +207,12 @@ private fun CoinMetricBottomNavigation(
                 selected = currentDestinationRoute == screen.route,
                 onClick = { onNavigate(screen.route) },
                 icon = {
-                    Icon(
-                        imageVector = screen.icon,
-                        contentDescription = screen.label,
-                    )
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        Icon(
+                            imageVector = screen.icon,
+                            contentDescription = screen.label,
+                        )
+                    }
                 },
                 label = null,
             )
