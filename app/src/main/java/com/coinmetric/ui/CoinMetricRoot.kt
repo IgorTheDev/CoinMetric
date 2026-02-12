@@ -127,6 +127,7 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
         ) { padding ->
             MobileLayout(padding) {
                 NavHost(
+                    modifier = Modifier.fillMaxSize(),
                     navController = navController,
                     startDestination = Screen.Dashboard.route,
                 ) {
@@ -225,11 +226,18 @@ private fun MobileLayout(padding: PaddingValues, content: @Composable () -> Unit
     ) {
         Column(
             modifier = Modifier
+                .fillMaxSize()
                 .fillMaxWidth()
                 .widthIn(max = 460.dp)
                 .padding(horizontal = 12.dp),
         ) {
-            content()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) {
+                content()
+            }
         }
     }
 }
