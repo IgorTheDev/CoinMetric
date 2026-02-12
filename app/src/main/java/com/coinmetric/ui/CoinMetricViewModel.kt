@@ -134,9 +134,6 @@ class CoinMetricViewModel : ViewModel() {
         SampleTransaction("Зарплата", 85000, "2023-10-25", "Доход", true),
     )
 
-    private var syncService: FirestoreSyncService? = null
-    private var syncNotificationHelper: SyncNotificationHelper? = null
-
     private val categories = mutableListOf("Еда", "Транспорт", "Досуг", "Коммунальные", "Доход")
     private val categoryMonthlyLimits = mutableMapOf(
         "Еда" to 15_000,
