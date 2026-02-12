@@ -1,13 +1,12 @@
-```
 # Compiled and build artifacts
 *.class
 *.o
 *.obj
+*.out
+*.dll
 *.so
 *.a
-*.dll
 *.exe
-*.out
 
 # Dependencies
 node_modules/
@@ -19,35 +18,28 @@ __pycache__/
 target/
 .gradle/
 
-# Build directories (Android/Gradle specific)
+# Build directories
 build/
-app/build/
-*.apk
-*.aar
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Environment
-.env
-.env.local
-*.env.*
+dist/
 
 # Editors
 .vscode/
 .idea/
-*.iml
-*.iws
+*.swp
 *.swo
-*.swn
+*.tmp
 
 # System files
 .DS_Store
 Thumbs.db
+.env
+.env.local
+*.env.*
 
-# Coverage reports
+# Logs
+*.log
+
+# Coverage
 coverage/
 htmlcov/
 .coverage
@@ -75,4 +67,3 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```

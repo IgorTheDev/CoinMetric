@@ -103,6 +103,7 @@ data class SettingsState(
     val pinProtectionEnabled: Boolean = false,
     val biometricProtectionEnabled: Boolean = false,
     val securitySetupCompleted: Boolean = false,
+    val googleSyncEnabled: Boolean = false,
 )
 
 data class FamilyInviteUiModel(
@@ -444,6 +445,17 @@ class CoinMetricViewModel : ViewModel() {
                 "pro" -> "CoinMetric Pro"
                 else -> "CoinMetric Free"
             },
+        )
+    }
+
+    fun setGoogleSync(enabled: Boolean) {
+        _settings.value = _settings.value.copy(googleSyncEnabled = enabled)
+        if (!enabled) {
+            _settings.value = _settings.value.copy(syncError = "Синхронизация отключена пользователем")
+        }
+        appendActivityLog(
+            action = "Google Sync",
+            target = if (enabled) "Включена" else "Отключена",
         )
     }
 
