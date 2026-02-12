@@ -73,6 +73,13 @@ data class ActivityLogUiModel(
     val createdAtLabel: String,
 )
 
+data class LimitAlertUiModel(
+    val category: String,
+    val spent: Double,
+    val limit: Double,
+    val isExceeded: Boolean,
+)
+
 data class SettingsState(
     val darkThemeEnabled: Boolean = false,
     val googleSyncEnabled: Boolean = true,
@@ -93,6 +100,7 @@ data class SettingsState(
     val subscriptionPlan: String = "free",
     val pinProtectionEnabled: Boolean = false,
     val biometricProtectionEnabled: Boolean = false,
+    val securitySetupCompleted: Boolean = false,
 )
 
 data class FamilyInviteUiModel(
@@ -127,6 +135,9 @@ class CoinMetricViewModel : ViewModel() {
 
     private val _categoriesState = MutableStateFlow(CategoriesState())
     val categoriesState: StateFlow<CategoriesState> = _categoriesState.asStateFlow()
+
+    private val _limitAlertEvent = MutableStateFlow<LimitAlertUiModel?>(null)
+    val limitAlertEvent: StateFlow<LimitAlertUiModel?> = _limitAlertEvent.asStateFlow()
 
     init {
         syncCategoriesWithTransactions()
@@ -245,6 +256,7 @@ class CoinMetricViewModel : ViewModel() {
             action = "Обновление лимита",
             target = "${state.selectedCategory}: ${limit.toRubCurrency()}",
         )
+        evaluateLimitAlert(state.selectedCategory)
     }
 
     fun updateNote(value: String) {
@@ -318,6 +330,7 @@ class CoinMetricViewModel : ViewModel() {
         }
 
         _dashboard.value = buildDashboardState(isLoading = false)
+        evaluateLimitAlert(state.category)
         enqueueSyncChanges(1)
         appendActivityLog(
             action = action,
@@ -360,6 +373,7 @@ class CoinMetricViewModel : ViewModel() {
         if (index == -1) return
         transactions.removeAt(index)
         _dashboard.value = buildDashboardState(isLoading = false)
+        evaluateLimitAlert(transaction.category)
         enqueueSyncChanges(1)
         appendActivityLog(
             action = "Удаление операции",
@@ -425,6 +439,18 @@ class CoinMetricViewModel : ViewModel() {
             action = "Биометрия",
             target = if (enabled) "Включена" else "Отключена",
         )
+    }
+
+    fun completeSecuritySetup() {
+        _settings.value = _settings.value.copy(securitySetupCompleted = true)
+        appendActivityLog(
+            action = "Мастер безопасности",
+            target = "Первичная настройка завершена",
+        )
+    }
+
+    fun consumeLimitAlertEvent() {
+        _limitAlertEvent.value = null
     }
 
     fun setOfflineMode(enabled: Boolean) {
@@ -506,6 +532,35 @@ class CoinMetricViewModel : ViewModel() {
             action = "Смена роли",
             target = mapRoleLabel(role),
         )
+    }
+
+    private val limitAlertStateByCategory = mutableMapOf<String, String>()
+
+    private fun evaluateLimitAlert(category: String) {
+        val trimmedCategory = category.trim()
+        if (trimmedCategory.isBlank()) return
+        val limit = categoryMonthlyLimits[trimmedCategory]?.toDouble() ?: return
+        if (limit <= 0.0) return
+        val spent = transactions
+            .filter { !it.income && it.category.equals(trimmedCategory, ignoreCase = true) }
+            .sumOf { kotlin.math.abs(it.amount) }
+            .toDouble()
+        val ratio = if (limit == 0.0) 0.0 else spent / limit
+        val previousState = limitAlertStateByCategory[trimmedCategory]
+        val newState = when {
+            ratio >= 1.0 -> "exceeded"
+            ratio >= 0.8 -> "almost"
+            else -> "normal"
+        }
+        if (newState != previousState && newState != "normal") {
+            _limitAlertEvent.value = LimitAlertUiModel(
+                category = trimmedCategory,
+                spent = spent,
+                limit = limit,
+                isExceeded = newState == "exceeded",
+            )
+        }
+        limitAlertStateByCategory[trimmedCategory] = newState
     }
 
     private fun enqueueSyncChanges(itemsCount: Int) {

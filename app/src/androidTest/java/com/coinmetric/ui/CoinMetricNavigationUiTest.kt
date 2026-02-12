@@ -31,6 +31,15 @@ class CoinMetricNavigationUiTest {
         composeRule.onNodeWithContentDescription("Настройки").assertIsDisplayed()
     }
 
+
+    @Test
+    fun opensSubscriptionDetailsFromSettings() {
+        composeRule.onNodeWithContentDescription("Настройки").performClick()
+        composeRule.onNodeWithText("Открыть детали тарифов и защиты").performClick()
+
+        composeRule.onNodeWithText("Выберите тариф").assertIsDisplayed()
+    }
+
     @Test
     fun viewerRoleCannotEditTransactions() {
         composeRule.onNodeWithContentDescription("Настройки").performClick()
