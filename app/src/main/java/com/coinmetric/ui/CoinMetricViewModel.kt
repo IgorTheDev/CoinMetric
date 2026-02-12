@@ -90,6 +90,9 @@ data class SettingsState(
     val pendingInvites: List<FamilyInviteUiModel> = emptyList(),
     val currentUserRole: String = "owner",
     val activityLog: List<ActivityLogUiModel> = emptyList(),
+    val subscriptionPlan: String = "free",
+    val pinProtectionEnabled: Boolean = false,
+    val biometricProtectionEnabled: Boolean = false,
 )
 
 data class FamilyInviteUiModel(
@@ -363,6 +366,45 @@ class CoinMetricViewModel : ViewModel() {
         appendActivityLog(
             action = "Напоминания о платежах",
             target = if (enabled) "Включены" else "Отключены",
+        )
+    }
+
+    fun setSubscriptionPlan(plan: String) {
+        _settings.value = _settings.value.copy(subscriptionPlan = plan)
+        appendActivityLog(
+            action = "План подписки",
+            target = when (plan) {
+                "pro" -> "CoinMetric Pro"
+                else -> "CoinMetric Free"
+            },
+        )
+    }
+
+    fun setPinProtectionEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(pinProtectionEnabled = enabled)
+        appendActivityLog(
+            action = "PIN-защита",
+            target = if (enabled) "Включена" else "Отключена",
+        )
+        if (!enabled && _settings.value.biometricProtectionEnabled) {
+            _settings.value = _settings.value.copy(biometricProtectionEnabled = false)
+            appendActivityLog(
+                action = "Биометрия",
+                target = "Отключена",
+            )
+        }
+    }
+
+    fun setBiometricProtectionEnabled(enabled: Boolean) {
+        val current = _settings.value
+        if (enabled && !current.pinProtectionEnabled) {
+            _settings.value = current.copy(syncError = "Сначала включите PIN-защиту")
+            return
+        }
+        _settings.value = current.copy(biometricProtectionEnabled = enabled, syncError = null)
+        appendActivityLog(
+            action = "Биометрия",
+            target = if (enabled) "Включена" else "Отключена",
         )
     }
 
