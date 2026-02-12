@@ -136,7 +136,8 @@ class CoinMetricViewModel : ViewModel() {
             return
         }
 
-        val signedAmount = if (state.isIncome) amountValue else -amountValue
+        val validAmount = requireNotNull(amountValue)
+        val signedAmount = if (state.isIncome) validAmount else -validAmount
         transactions.add(
             0,
             SampleTransaction(
