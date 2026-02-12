@@ -215,4 +215,45 @@ class CoinMetricViewModelInviteTest {
         assertEquals("Здоровье", log.target)
     }
 
+    @Test
+    fun completeSecuritySetup_marksSetupAsCompleted() {
+        val vm = CoinMetricViewModel()
+        vm.setPinProtectionEnabled(true)
+
+        vm.completeSecuritySetup()
+
+        assertTrue(vm.settings.value.securitySetupCompleted)
+        assertEquals("Мастер безопасности", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun saveTransaction_emitsLimitAlertWhenLimitAlmostReached() {
+        val vm = CoinMetricViewModel()
+        vm.updateSelectedLimitCategory("Еда")
+        vm.updateMonthlyLimitInput("2000")
+        vm.saveMonthlyLimit()
+        vm.consumeLimitAlertEvent()
+
+        vm.updateAmount("1800")
+        vm.updateCategory("Еда")
+        vm.saveTransaction(onSuccess = {})
+
+        val alert = vm.limitAlertEvent.value
+        assertTrue(alert != null)
+        assertEquals(false, alert?.isExceeded)
+        assertEquals("Еда", alert?.category)
+    }
+
+    @Test
+    fun consumeLimitAlertEvent_clearsEvent() {
+        val vm = CoinMetricViewModel()
+        vm.updateSelectedLimitCategory("Еда")
+        vm.updateMonthlyLimitInput("1000")
+        vm.saveMonthlyLimit()
+
+        vm.consumeLimitAlertEvent()
+
+        assertEquals(null, vm.limitAlertEvent.value)
+    }
+
 }

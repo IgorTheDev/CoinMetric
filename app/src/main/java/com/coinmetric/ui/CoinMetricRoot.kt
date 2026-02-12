@@ -51,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.border
@@ -96,6 +97,7 @@ private sealed class Screen(val route: String, val label: String, val icon: andr
     data object Categories : Screen("categories", "Категории", Icons.Filled.Category)
     data object Analytics : Screen("analytics", "Аналитика", Icons.Filled.Analytics)
     data object Settings : Screen("settings", "Настройки", Icons.Filled.Settings)
+    data object Subscription : Screen("subscription", "Подписка", Icons.Filled.Settings)
 }
 
 private data class HeaderConfig(
@@ -104,7 +106,7 @@ private data class HeaderConfig(
 )
 
 @Composable
-fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
+fun CoinMetricRoot(startRoute: String? = null, vm: CoinMetricViewModel = viewModel()) {
     val context = LocalContext.current
     val onboardingPrefs = remember(context) { context.getSharedPreferences("coinmetric_prefs", android.content.Context.MODE_PRIVATE) }
     LaunchedEffect(vm) {
@@ -122,7 +124,19 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
     }
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Dashboard.route
+    val currentRoute = navBackStackEntry?.destination?.route ?: (startRoute ?: Screen.Dashboard.route)
+
+    val limitAlert by vm.limitAlertEvent.collectAsStateWithLifecycle()
+    LaunchedEffect(limitAlert) {
+        val alert = limitAlert ?: return@LaunchedEffect
+        val helper = LimitNotificationHelper(context)
+        if (alert.isExceeded) {
+            helper.notifyLimitExceeded(alert.category, alert.spent, alert.limit)
+        } else {
+            helper.notifyLimitAlmostReached(alert.category, alert.spent, alert.limit)
+        }
+        vm.consumeLimitAlertEvent()
+    }
 
 
     CoinMetricTheme(darkTheme = settings.darkThemeEnabled) {
@@ -155,7 +169,7 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                 NavHost(
                     modifier = Modifier.fillMaxSize(),
                     navController = navController,
-                    startDestination = Screen.Dashboard.route,
+                    startDestination = startRoute ?: Screen.Dashboard.route,
                 ) {
                     composable(Screen.Dashboard.route) {
                         DashboardScreen(vm = vm, onOnboardingDismissed = {
@@ -180,10 +194,14 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                     composable(Screen.Settings.route) {
                         SettingsScreen(
                             vm = vm,
+                            onOpenSubscription = { navController.navigate(Screen.Subscription.route) },
                             onOnboardingVisibilityChanged = { isVisible ->
                                 onboardingPrefs.edit().putBoolean("onboarding_completed", !isVisible).apply()
                             },
                         )
+                    }
+                    composable(Screen.Subscription.route) {
+                        SubscriptionScreen(vm = vm)
                     }
                 }
             }
@@ -273,6 +291,7 @@ private fun HeaderTitle(route: String, onCancelAdd: () -> Unit) {
         Screen.Categories.route -> HeaderConfig("Категории", "Лимиты и управление категориями")
         Screen.Analytics.route -> HeaderConfig("Аналитика", "Структура расходов и лимиты")
         Screen.Settings.route -> HeaderConfig("Настройки", "Тема, синхронизация и доступ")
+        Screen.Subscription.route -> HeaderConfig("Подписка и безопасность", "Тарифы и защита аккаунта")
         else -> HeaderConfig("CoinMetric", "Семейный финансовый обзор")
     }
 
@@ -1130,7 +1149,7 @@ fun CalendarView(
 }
 
 @Composable
-private fun SettingsScreen(vm: CoinMetricViewModel, onOnboardingVisibilityChanged: (Boolean) -> Unit) {
+private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Unit, onOnboardingVisibilityChanged: (Boolean) -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val canManageMembers = settings.currentUserRole == "owner"
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1323,30 +1342,21 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOnboardingVisibilityChange
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Подписка и безопасность", fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Управляйте тарифом и защитой входа для семейного бюджета.",
+                        "Текущий план: ${if (settings.subscriptionPlan == "pro") "CoinMetric Pro" else "CoinMetric Free"}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Text("Текущий план", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = settings.subscriptionPlan == "free",
-                            onClick = { vm.setSubscriptionPlan("free") },
-                            label = { Text("Free") },
-                        )
-                        FilterChip(
-                            selected = settings.subscriptionPlan == "pro",
-                            onClick = { vm.setSubscriptionPlan("pro") },
-                            label = { Text("Pro") },
-                        )
+                    Button(onClick = onOpenSubscription, modifier = Modifier.fillMaxWidth()) {
+                        Text("Открыть детали тарифов и защиты")
                     }
-                    SettingRow("PIN-защита", settings.pinProtectionEnabled) { vm.setPinProtectionEnabled(it) }
-                    SettingRow(
-                        "Вход по биометрии",
-                        settings.biometricProtectionEnabled,
-                    ) { vm.setBiometricProtectionEnabled(it) }
                 }
             }
         }
+        if (!settings.securitySetupCompleted) {
+            item {
+                SecuritySetupCard(vm = vm, settings = settings)
+            }
+        }
+
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1390,6 +1400,75 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOnboardingVisibilityChange
             }
         }
         item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun SubscriptionScreen(vm: CoinMetricViewModel) {
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Выберите тариф", fontWeight = FontWeight.SemiBold)
+                    Text("Free: базовый учёт бюджета и семейный доступ. Pro: расширенная аналитика, приоритетная синхронизация и больше автоматизаций.")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = settings.subscriptionPlan == "free",
+                            onClick = { vm.setSubscriptionPlan("free") },
+                            label = { Text("Free") },
+                        )
+                        FilterChip(
+                            selected = settings.subscriptionPlan == "pro",
+                            onClick = { vm.setSubscriptionPlan("pro") },
+                            label = { Text("Pro") },
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Безопасность", fontWeight = FontWeight.SemiBold)
+                    SettingRow("PIN-защита", settings.pinProtectionEnabled) { vm.setPinProtectionEnabled(it) }
+                    SettingRow("Вход по биометрии", settings.biometricProtectionEnabled) { vm.setBiometricProtectionEnabled(it) }
+                    Text(
+                        if (settings.securitySetupCompleted) "Первичная настройка безопасности завершена" else "Запустите мастер в настройках для первичной конфигурации.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SecuritySetupCard(vm: CoinMetricViewModel, settings: SettingsState) {
+    var wizardOpened by rememberSaveable { mutableStateOf(false) }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Мастер первичной настройки безопасности", fontWeight = FontWeight.SemiBold)
+            Text("Выполните два шага, чтобы защитить вход в приложение.")
+            Button(onClick = { wizardOpened = !wizardOpened }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (wizardOpened) "Скрыть мастер" else "Запустить мастер")
+            }
+            if (wizardOpened) {
+                SettingRow("Шаг 1: включить PIN", settings.pinProtectionEnabled) { vm.setPinProtectionEnabled(it) }
+                SettingRow("Шаг 2: включить биометрию", settings.biometricProtectionEnabled) { vm.setBiometricProtectionEnabled(it) }
+                Button(
+                    onClick = {
+                        vm.completeSecuritySetup()
+                        wizardOpened = false
+                    },
+                    enabled = settings.pinProtectionEnabled,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Завершить мастер")
+                }
+            }
+        }
     }
 }
 
@@ -1528,6 +1607,6 @@ private fun CalendarScreenPreview() {
 @Composable
 private fun SettingsScreenPreview() {
     CoinMetricTheme {
-        SettingsScreen(vm = CoinMetricViewModel(), onOnboardingVisibilityChanged = {})
+        SettingsScreen(vm = CoinMetricViewModel(), onOpenSubscription = {}, onOnboardingVisibilityChanged = {})
     }
 }
