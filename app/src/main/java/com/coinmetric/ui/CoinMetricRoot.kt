@@ -29,6 +29,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -58,7 +59,6 @@ import java.util.Locale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -84,16 +84,8 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val destination = navBackStackEntry?.destination
-    val currentRoute = destination?.route ?: Screen.Dashboard.route
+    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Dashboard.route
 
-    val navScreens = listOf(
-        Screen.Dashboard,
-        Screen.Calendar,
-        Screen.Add,
-        Screen.Analytics,
-        Screen.Settings,
-    )
 
     CoinMetricTheme(darkTheme = settings.darkThemeEnabled) {
         Scaffold(
@@ -107,29 +99,18 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                 )
             },
             bottomBar = {
-                NavigationBar {
-                    navScreens.forEach { screen ->
-                        NavigationBarItem(
-                            selected = destination?.hierarchy?.any { it.route == screen.route } == true,
-                            onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = screen.icon,
-                                    contentDescription = screen.label,
-                                )
-                            },
-                            label = null,
-                        )
-                    }
-                }
+                CoinMetricBottomNavigation(
+                    currentDestinationRoute = currentRoute,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             },
         ) { padding ->
             MobileLayout(padding) {
@@ -157,6 +138,67 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                     }
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun CoinMetricBottomNavigation(
+    currentDestinationRoute: String,
+    onNavigate: (String) -> Unit,
+) {
+    NavigationBar {
+        val leftScreens = listOf(Screen.Dashboard, Screen.Calendar)
+        val rightScreens = listOf(Screen.Analytics, Screen.Settings)
+
+        leftScreens.forEach { screen ->
+            NavigationBarItem(
+                selected = currentDestinationRoute == screen.route,
+                onClick = { onNavigate(screen.route) },
+                icon = {
+                    Icon(
+                        imageVector = screen.icon,
+                        contentDescription = screen.label,
+                    )
+                },
+                label = null,
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            FloatingActionButton(
+                onClick = { onNavigate(Screen.Add.route) },
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .size(56.dp),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Icon(
+                    imageVector = Screen.Add.icon,
+                    contentDescription = Screen.Add.label,
+                )
+            }
+        }
+
+        rightScreens.forEach { screen ->
+            NavigationBarItem(
+                selected = currentDestinationRoute == screen.route,
+                onClick = { onNavigate(screen.route) },
+                icon = {
+                    Icon(
+                        imageVector = screen.icon,
+                        contentDescription = screen.label,
+                    )
+                },
+                label = null,
+            )
         }
     }
 }
