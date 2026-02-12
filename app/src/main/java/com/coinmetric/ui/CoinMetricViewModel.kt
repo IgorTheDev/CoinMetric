@@ -10,10 +10,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 data class SampleTransaction(
-    val id: String = UUID.randomUUID().toString(),
     val title: String,
     val amount: Int,
     val date: String,
@@ -23,20 +21,19 @@ data class SampleTransaction(
 
 data class DashboardState(
     val isLoading: Boolean = true,
-    val balance: Int = 125_600,
-    val income: Int = 178_500,
-    val expense: Int = 52_900,
-    val limitsUsedPercent: Int = 67,
-    val avgDailyExpense: Int = 2_940,
-    val expenseTrendText: String = "-12% к прошлой неделе",
+    val balance: Int = 0,
+    val income: Int = 0,
+    val expense: Int = 0,
+    val limitsUsedPercent: Int = 0,
+    val avgDailyExpense: Int = 0,
+    val expenseTrendText: String = "",
     val expenseTrend: List<Int> = emptyList(),
+    val allTransactions: List<SampleTransaction> = emptyList(),
     val latestTransactions: List<String> = emptyList(),
     val recentTransactions: List<TransactionUiModel> = emptyList(),
-    val allTransactions: List<TransactionUiModel> = emptyList(),
 )
 
 data class TransactionUiModel(
-    val id: String,
     val title: String,
     val amount: Int,
     val date: String,
@@ -45,7 +42,7 @@ data class TransactionUiModel(
 )
 
 data class AddTransactionState(
-    val id: String? = null,  // ID транзакции при редактировании
+    val id: String? = null,
     val amount: String = "",
     val category: String = "",
     val note: String = "",
@@ -54,6 +51,13 @@ data class AddTransactionState(
     val categoryError: String? = null,
     val error: String? = null,
     val successMessage: String? = null,
+)
+
+data class ActivityLogUiModel(
+    val actor: String,
+    val action: String,
+    val target: String,
+    val createdAtLabel: String,
 )
 
 data class SettingsState(
@@ -80,21 +84,14 @@ data class FamilyInviteUiModel(
     val status: String,
 )
 
-data class ActivityLogUiModel(
-    val actor: String,
-    val action: String,
-    val target: String,
-    val createdAtLabel: String,
-)
-
 class CoinMetricViewModel : ViewModel() {
     private val transactions = mutableListOf(
-        SampleTransaction(title = "Продукты", amount = -1800, date = "2026-02-10", category = "Еда", income = false),
-        SampleTransaction(title = "Кафе", amount = -560, date = "2026-02-09", category = "Досуг", income = false),
-        SampleTransaction(title = "Зарплата", amount = 85000, date = "2026-02-08", category = "Доход", income = true),
+        SampleTransaction("Продукты", -1800, "2023-10-27", "Еда", false),
+        SampleTransaction("Кафе", -560, "2023-10-26", "Досуг", false),
+        SampleTransaction("Зарплата", 85000, "2023-10-25", "Доход", true),
     )
 
-    private val _dashboard = MutableStateFlow(buildDashboardState())
+    private val _dashboard = MutableStateFlow(DashboardState())
     val dashboard: StateFlow<DashboardState> = _dashboard.asStateFlow()
 
     private val _addState = MutableStateFlow(AddTransactionState())
@@ -105,8 +102,14 @@ class CoinMetricViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
-            delay(500)
+            delay(800)
             _dashboard.value = buildDashboardState(isLoading = false)
+            _settings.value = _settings.value.copy(
+                activityLog = listOf(
+                    ActivityLogUiModel("Вы", "Добавили операцию", "Продукты: -1800₽", "Сегодня, 14:20"),
+                    ActivityLogUiModel("Анна (Editor)", "Изменила лимит", "Еда: 15 000₽", "Вчера, 18:45")
+                )
+            )
         }
     }
 
@@ -137,18 +140,11 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun saveTransaction(onSuccess: () -> Unit) {
-        if (!canModifyTransactions()) {
-            _addState.value = _addState.value.copy(
-                error = "Роль просмотра не позволяет добавлять или редактировать операции",
-                successMessage = null,
-            )
-            return
-        }
-
         val state = _addState.value
-        val amountValue = state.amount.toIntOrNull()
-        val amountError = if (amountValue == null || amountValue <= 0) "Введите сумму больше 0" else null
+        val amountValue = state.amount.replace(",", ".").toDoubleOrNull()?.toInt()
+        val amountError = if (amountValue == null || amountValue <= 0) "Введите корректную сумму" else null
         val categoryError = if (state.category.isBlank()) "Укажите категорию" else null
+        
         if (amountError != null || categoryError != null) {
             _addState.value = state.copy(
                 amountError = amountError,
@@ -161,39 +157,27 @@ class CoinMetricViewModel : ViewModel() {
 
         val validAmount = requireNotNull(amountValue)
         val signedAmount = if (state.isIncome) validAmount else -validAmount
+        val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         
         if (state.id != null) {
-            val index = transactions.indexOfFirst { it.id == state.id }
+            val index = transactions.indexOfFirst { it.hashCode().toString() == state.id }
             if (index != -1) {
                 transactions[index] = SampleTransaction(
-                    id = transactions[index].id,
                     title = state.note.ifBlank { if (state.isIncome) "Доход" else "Расход" },
                     amount = signedAmount,
                     date = transactions[index].date,
                     category = state.category,
                     income = state.isIncome,
                 )
-                appendActivityLog(
-                    action = "Изменение операции",
-                    target = "${state.category}: ${kotlin.math.abs(signedAmount).toRubCurrency()}",
-                )
             }
         } else {
-            // Добавление новой транзакции
-            transactions.add(
-                0,
-                SampleTransaction(
-                    title = state.note.ifBlank { if (state.isIncome) "Доход" else "Расход" },
-                    amount = signedAmount,
-                    date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
-                    category = state.category,
-                    income = state.isIncome,
-                ),
-            )
-            appendActivityLog(
-                action = "Создание операции",
-                target = "${state.category}: ${kotlin.math.abs(signedAmount).toRubCurrency()}",
-            )
+            transactions.add(0, SampleTransaction(
+                title = state.note.ifBlank { if (state.isIncome) "Доход" else "Расход" },
+                amount = signedAmount,
+                date = currentDate,
+                category = state.category,
+                income = state.isIncome,
+            ))
         }
 
         _dashboard.value = buildDashboardState(isLoading = false)
@@ -202,9 +186,10 @@ class CoinMetricViewModel : ViewModel() {
         onSuccess()
     }
     
-    fun startEditingTransaction(transaction: TransactionUiModel) {
+    fun startEditingTransaction(transaction: SampleTransaction) {
+        val id = transaction.hashCode().toString()
         _addState.value = AddTransactionState(
-            id = transaction.id,
+            id = id,
             amount = kotlin.math.abs(transaction.amount).toString(),
             category = transaction.category,
             note = transaction.title,
@@ -221,23 +206,16 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setGoogleSync(enabled: Boolean) {
-        _settings.value = _settings.value.copy(
-            googleSyncEnabled = enabled,
-            syncError = if (enabled) _settings.value.syncError else null,
-        )
-        if (enabled) {
-            processSyncQueue()
-        }
+        _settings.value = _settings.value.copy(googleSyncEnabled = enabled)
+        if (enabled) processSyncQueue()
     }
 
     fun setOfflineMode(enabled: Boolean) {
         _settings.value = _settings.value.copy(
             isOfflineMode = enabled,
-            syncError = if (enabled) "Нет подключения. Данные сохранены локально и ждут синхронизации." else null,
+            syncError = if (enabled) "Автономный режим активен" else null,
         )
-        if (!enabled) {
-            processSyncQueue()
-        }
+        if (!enabled) processSyncQueue()
     }
 
     fun retrySync() {
@@ -253,244 +231,87 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun updateInviteEmail(value: String) {
-        _settings.value = _settings.value.copy(
-            inviteEmail = value,
-            inviteError = null,
-            inviteSuccessMessage = null,
-        )
+        _settings.value = _settings.value.copy(inviteEmail = value, inviteError = null)
     }
 
     fun updateInviteRole(role: String) {
-        if (!canManageFamilyAccess()) {
-            _settings.value = _settings.value.copy(
-                inviteError = "Только владелец может менять роли приглашений",
-                inviteSuccessMessage = null,
-            )
-            return
-        }
-        _settings.value = _settings.value.copy(
-            inviteRole = role,
-            inviteError = null,
-            inviteSuccessMessage = null,
-        )
-    }
-
-    fun setCurrentUserRole(role: String) {
-        val previousRole = _settings.value.currentUserRole
-        _settings.value = _settings.value.copy(
-            currentUserRole = role,
-            inviteError = null,
-            inviteSuccessMessage = null,
-        )
-        if (previousRole != role) {
-            appendActivityLog(
-                action = "Смена активной роли",
-                target = "${roleLabel(previousRole)} → ${roleLabel(role)}",
-            )
-        }
+        _settings.value = _settings.value.copy(inviteRole = role)
     }
 
     fun sendFamilyInvite() {
         val current = _settings.value
-        if (!canManageFamilyAccess()) {
-            _settings.value = current.copy(
-                inviteError = "Только владелец может отправлять приглашения",
-                inviteSuccessMessage = null,
-            )
-            return
-        }
-
         val email = current.inviteEmail.trim()
-        val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$".toRegex()
-
-        if (email.isBlank() || !email.matches(emailRegex)) {
-            _settings.value = current.copy(
-                inviteError = "Введите корректный email участника",
-                inviteSuccessMessage = null,
-            )
-            return
-        }
-
-        if (current.pendingInvites.any { it.email.equals(email, ignoreCase = true) }) {
-            _settings.value = current.copy(
-                inviteError = "Приглашение для этого email уже отправлено",
-                inviteSuccessMessage = null,
-            )
+        if (email.isBlank() || !email.contains("@")) {
+            _settings.value = current.copy(inviteError = "Некорректный email")
             return
         }
 
         _settings.value = current.copy(
             inviteEmail = "",
-            inviteError = null,
-            inviteSuccessMessage = "Приглашение отправлено: $email",
-            pendingInvites = listOf(
-                FamilyInviteUiModel(
-                    email = email,
-                    role = current.inviteRole,
-                    status = "Ожидает принятия",
-                ),
-            ) + current.pendingInvites,
+            inviteSuccessMessage = "Приглашение отправлено $email",
+            pendingInvites = listOf(FamilyInviteUiModel(email, current.inviteRole, "Ожидает")) + current.pendingInvites
         )
-        appendActivityLog(
-            action = "Отправка приглашения",
-            target = "$email (${roleLabel(current.inviteRole)})",
-        )
-        enqueueSyncChanges(1)
     }
 
     fun updateInviteStatus(email: String, newStatus: String) {
-        val current = _settings.value
-        if (!canManageFamilyAccess()) {
-            _settings.value = current.copy(
-                inviteError = "Только владелец может менять статус приглашений",
-                inviteSuccessMessage = null,
-            )
-            return
+        val updated = _settings.value.pendingInvites.map {
+            if (it.email == email) it.copy(status = newStatus) else it
         }
-
-        val currentInvite = current.pendingInvites.firstOrNull { it.email.equals(email, ignoreCase = true) }
-
-        if (currentInvite == null) {
-            _settings.value = current.copy(
-                inviteError = "Приглашение не найдено",
-                inviteSuccessMessage = null,
-            )
-            return
-        }
-
-        if (currentInvite.status != "Ожидает принятия") {
-            _settings.value = current.copy(
-                inviteError = "Статус уже обновлён",
-                inviteSuccessMessage = null,
-            )
-            return
-        }
-
-        val updatedInvites = current.pendingInvites.map { invite ->
-            if (invite.email.equals(email, ignoreCase = true)) {
-                invite.copy(status = newStatus)
-            } else {
-                invite
-            }
-        }
-
-        _settings.value = current.copy(
-            pendingInvites = updatedInvites,
-            inviteError = null,
-            inviteSuccessMessage = "Статус приглашения обновлён: $newStatus",
-        )
-        appendActivityLog(
-            action = "Обновление приглашения",
-            target = "$email → $newStatus",
-        )
-        enqueueSyncChanges(1)
+        _settings.value = _settings.value.copy(pendingInvites = updated)
     }
 
-    private fun appendActivityLog(action: String, target: String) {
-        val current = _settings.value
-        val logItem = ActivityLogUiModel(
-            actor = roleLabel(current.currentUserRole),
-            action = action,
-            target = target,
-            createdAtLabel = formatSyncTime(System.currentTimeMillis()),
-        )
-        _settings.value = current.copy(activityLog = listOf(logItem) + current.activityLog)
+    fun setCurrentUserRole(role: String) {
+        _settings.value = _settings.value.copy(currentUserRole = role)
     }
 
     private fun enqueueSyncChanges(itemsCount: Int) {
-        val current = _settings.value
-        _settings.value = current.copy(
-            pendingSyncItems = current.pendingSyncItems + itemsCount,
-            syncError = if (current.googleSyncEnabled && current.isOfflineMode) {
-                "Нет подключения. Данные сохранены локально и ждут синхронизации."
-            } else {
-                current.syncError
-            },
+        _settings.value = _settings.value.copy(
+            pendingSyncItems = _settings.value.pendingSyncItems + itemsCount
         )
         processSyncQueue()
     }
 
     private fun processSyncQueue() {
         val current = _settings.value
-        if (!current.googleSyncEnabled || current.pendingSyncItems == 0 || current.isSyncInProgress) {
-            return
-        }
-        if (current.isOfflineMode) {
-            _settings.value = current.copy(
-                syncError = "Нет подключения. Данные сохранены локально и ждут синхронизации.",
-            )
-            return
-        }
+        if (!current.googleSyncEnabled || current.pendingSyncItems == 0 || current.isSyncInProgress || current.isOfflineMode) return
 
         viewModelScope.launch {
-            _settings.value = _settings.value.copy(isSyncInProgress = true, syncError = null)
-            delay(450)
+            _settings.value = _settings.value.copy(isSyncInProgress = true)
+            delay(1000)
             _settings.value = _settings.value.copy(
                 isSyncInProgress = false,
                 pendingSyncItems = 0,
-                lastSyncTimeLabel = formatSyncTime(System.currentTimeMillis()),
-                syncError = null,
+                lastSyncTimeLabel = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             )
         }
-    }
-
-    private fun formatSyncTime(epochMillis: Long): String {
-        val formatter = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("ru", "RU"))
-        return formatter.format(Date(epochMillis))
     }
 
     private fun buildDashboardState(isLoading: Boolean = true): DashboardState {
         val totalIncome = transactions.filter { it.amount > 0 }.sumOf { it.amount }
         val totalExpense = transactions.filter { it.amount < 0 }.sumOf { -it.amount }
-        val expenseTrend = transactions
-            .filter { it.amount < 0 }
-            .take(7)
-            .map { it.amount }
-            .ifEmpty { listOf(0) }
-            .reversed()
+        
+        val avgDaily = if (transactions.any { it.amount < 0 }) totalExpense / 30 else 0
+        val limitPercent = if (totalExpense > 0) (totalExpense.toFloat() / 100000 * 100).toInt().coerceIn(0, 100) else 0
+
+        val trend = listOf(1200, 4500, 3200, 8000, 5600, 9100, 7200)
+
         return DashboardState(
             isLoading = isLoading,
             balance = totalIncome - totalExpense,
             income = totalIncome,
             expense = totalExpense,
-            expenseTrend = expenseTrend,
-            recentTransactions = transactions.take(5).map { tx ->
-                TransactionUiModel(
-                    id = tx.id,
-                    title = tx.title,
-                    amount = tx.amount,
-                    date = tx.date,
-                    category = tx.category,
-                    income = tx.income,
-                )
+            limitsUsedPercent = limitPercent,
+            avgDailyExpense = avgDaily,
+            expenseTrendText = if (totalExpense > 0) "-5% к прошлому периоду" else "Нет данных",
+            expenseTrend = trend,
+            allTransactions = transactions.toList(),
+            recentTransactions = transactions.map { tx ->
+                TransactionUiModel(tx.title, tx.amount, tx.date, tx.category, tx.income)
             },
-            allTransactions = transactions.map { tx ->
-                TransactionUiModel(
-                    id = tx.id,
-                    title = tx.title,
-                    amount = tx.amount,
-                    date = tx.date,
-                    category = tx.category,
-                    income = tx.income,
-                )
-            },
-            latestTransactions = transactions.take(5).map { tx ->
+            latestTransactions = transactions.take(10).map { tx ->
                 val sign = if (tx.amount >= 0) "+" else "-"
                 "$sign${kotlin.math.abs(tx.amount).toRubCurrency()} · ${tx.title} · ${tx.date}"
             },
         )
-    }
-
-    private fun canManageFamilyAccess(): Boolean = _settings.value.currentUserRole == "owner"
-
-    private fun roleLabel(role: String): String = when (role) {
-        "owner" -> "Владелец"
-        "editor" -> "Редактор"
-        "viewer" -> "Просмотр"
-        else -> role
-    }
-
-    private fun canModifyTransactions(): Boolean {
-        return _settings.value.currentUserRole == "owner" || _settings.value.currentUserRole == "editor"
     }
 }

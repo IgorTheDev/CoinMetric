@@ -366,7 +366,7 @@ private fun DashboardScreen(vm: CoinMetricViewModel) {
                 }
             }
         }
-        item { Spacer(Modifier.height(72.dp)) }
+        item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
@@ -533,7 +533,7 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 Text(if (state.id == null) "Сохранить" else "Сохранить изменения")
             }
         }
-        item { Spacer(Modifier.height(72.dp)) }
+        item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
@@ -709,7 +709,7 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) 
                 }
             }
         }
-        item { Spacer(Modifier.height(72.dp)) }
+        item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
@@ -834,7 +834,7 @@ private fun CalendarScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) {
                 }
             }
         }
-        item { Spacer(Modifier.height(72.dp)) }
+        item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
@@ -1136,7 +1136,7 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                 }
             }
         }
-        item { Spacer(Modifier.height(72.dp)) }
+        item { Spacer(Modifier.height(16.dp)) }
     }
 }
 
