@@ -770,6 +770,7 @@ class CoinMetricViewModel : ViewModel() {
                     lastSyncTimeLabel = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
                 )
             } catch (e: Exception) {
+                Log.w("CoinMetricViewModel", "Warning: Sync operation failed with error: ${e.message}", e)
                 _settings.value = _settings.value.copy(
                     isSyncInProgress = false,
                     syncError = "Ошибка синхронизации: ${e.message}"

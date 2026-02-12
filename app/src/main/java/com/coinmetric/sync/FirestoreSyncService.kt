@@ -19,37 +19,47 @@ class FirestoreSyncService(
 ) {
     suspend fun pushSnapshot(accountEmail: String, snapshot: SyncSnapshot) {
         Log.d("FirestoreSyncService", "Starting push sync for account: $accountEmail")
-        val root = firestore.collection("budgets").document(accountEmail)
-        uploadCollection(root.collection("categories"), snapshot.categories.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
-        uploadCollection(root.collection("members"), snapshot.members.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
-        uploadCollection(root.collection("transactions"), snapshot.transactions.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
-        uploadCollection(root.collection("recurring"), snapshot.recurringPayments.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
-        uploadCollection(root.collection("invites"), snapshot.invites.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
-        uploadCollection(root.collection("limits"), snapshot.limits.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
+        try {
+            val root = firestore.collection("budgets").document(accountEmail)
+            uploadCollection(root.collection("categories"), snapshot.categories.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
+            uploadCollection(root.collection("members"), snapshot.members.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
+            uploadCollection(root.collection("transactions"), snapshot.transactions.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
+            uploadCollection(root.collection("recurring"), snapshot.recurringPayments.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
+            uploadCollection(root.collection("invites"), snapshot.invites.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
+            uploadCollection(root.collection("limits"), snapshot.limits.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
 
-        val changeLog = if (snapshot.changeLog.isEmpty()) {
-            snapshot.toSyntheticChangeLog(source = "local")
-        } else {
-            snapshot.changeLog
+            val changeLog = if (snapshot.changeLog.isEmpty()) {
+                snapshot.toSyntheticChangeLog(source = "local")
+            } else {
+                snapshot.changeLog
+            }
+            uploadChangeLog(root.collection("changes"), changeLog)
+            Log.d("FirestoreSyncService", "Push sync completed successfully for account: $accountEmail")
+        } catch (e: Exception) {
+            Log.w("FirestoreSyncService", "Warning: Push sync failed for account: $accountEmail with error: ${e.message}", e)
+            throw e
         }
-        uploadChangeLog(root.collection("changes"), changeLog)
-        Log.d("FirestoreSyncService", "Push sync completed successfully for account: $accountEmail")
     }
 
     suspend fun pullSnapshot(accountEmail: String): SyncSnapshot {
         Log.d("FirestoreSyncService", "Starting pull sync for account: $accountEmail")
-        val root = firestore.collection("budgets").document(accountEmail)
-        val snapshot = SyncSnapshot(
-            categories = root.collection("categories").get().await().documents.mapNotNull { it.toCategory() },
-            members = root.collection("members").get().await().documents.mapNotNull { it.toMember() },
-            transactions = root.collection("transactions").get().await().documents.mapNotNull { it.toTransaction() },
-            recurringPayments = root.collection("recurring").get().await().documents.mapNotNull { it.toRecurring() },
-            invites = root.collection("invites").get().await().documents.mapNotNull { it.toInvite() },
-            limits = root.collection("limits").get().await().documents.mapNotNull { it.toLimit() },
-            changeLog = root.collection("changes").get().await().documents.mapNotNull { it.toChangeLog() },
-        )
-        Log.d("FirestoreSyncService", "Pull sync completed successfully for account: $accountEmail, fetched ${snapshot.categories.size} categories, ${snapshot.members.size} members, ${snapshot.transactions.size} transactions, ${snapshot.recurringPayments.size} recurring payments, ${snapshot.invites.size} invites, ${snapshot.limits.size} limits")
-        return snapshot
+        try {
+            val root = firestore.collection("budgets").document(accountEmail)
+            val snapshot = SyncSnapshot(
+                categories = root.collection("categories").get().await().documents.mapNotNull { it.toCategory() },
+                members = root.collection("members").get().await().documents.mapNotNull { it.toMember() },
+                transactions = root.collection("transactions").get().await().documents.mapNotNull { it.toTransaction() },
+                recurringPayments = root.collection("recurring").get().await().documents.mapNotNull { it.toRecurring() },
+                invites = root.collection("invites").get().await().documents.mapNotNull { it.toInvite() },
+                limits = root.collection("limits").get().await().documents.mapNotNull { it.toLimit() },
+                changeLog = root.collection("changes").get().await().documents.mapNotNull { it.toChangeLog() },
+            )
+            Log.d("FirestoreSyncService", "Pull sync completed successfully for account: $accountEmail, fetched ${snapshot.categories.size} categories, ${snapshot.members.size} members, ${snapshot.transactions.size} transactions, ${snapshot.recurringPayments.size} recurring payments, ${snapshot.invites.size} invites, ${snapshot.limits.size} limits")
+            return snapshot
+        } catch (e: Exception) {
+            Log.w("FirestoreSyncService", "Warning: Pull sync failed for account: $accountEmail with error: ${e.message}", e)
+            throw e
+        }
     }
 
     suspend fun pullChanges(accountEmail: String, sinceEpochMillis: Long): SyncSnapshot {
