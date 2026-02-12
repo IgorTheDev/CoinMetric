@@ -559,6 +559,12 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                     Switch(checked = state.isIncome, onCheckedChange = vm::updateIncomeFlag, enabled = canEditTransactions)
                 }
             }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Постоянный платёж")
+                    Switch(checked = state.isRecurring, onCheckedChange = vm::updateRecurringFlag, enabled = canEditTransactions)
+                }
+            }
             if (!canEditTransactions) {
                 item {
                     Text(
@@ -1272,7 +1278,7 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOnboardingVisibilityChange
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Общие настройки", fontWeight = FontWeight.SemiBold)
                     Text("Валюта по умолчанию: RUB")
-                    Text("Уведомления о лимитах: включены")
+                    SettingRow("Уведомления о лимитах", settings.recurringRemindersEnabled) { vm.setRecurringReminders(it) }
                     Button(onClick = {}, modifier = Modifier.fillMaxWidth()) {
                         Text("Выйти из аккаунта")
                     }
