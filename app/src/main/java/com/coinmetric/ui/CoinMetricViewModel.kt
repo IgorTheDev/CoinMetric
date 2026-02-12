@@ -3,6 +3,7 @@ package com.coinmetric.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.coinmetric.CoinMetricApp
 import com.coinmetric.sync.FirestoreSyncService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -119,6 +120,14 @@ class CoinMetricViewModel : ViewModel() {
     private val allowedInviteStatuses = setOf("Ожидает принятия", "Принято", "Отклонено")
     private val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")
 
+    private var syncService: FirestoreSyncService
+        get() = CoinMetricApp.syncService
+        private set(value) { /* no-op */ }
+
+    private var syncNotificationHelper: SyncNotificationHelper
+        get() = CoinMetricApp.syncNotificationHelper
+        private set(value) { /* no-op */ }
+
     private val transactions = mutableListOf(
         SampleTransaction("Продукты", -1800, "2023-10-27", "Еда", false),
         SampleTransaction("Кафе", -560, "2023-10-26", "Досуг", false),
@@ -174,8 +183,8 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun initializeSyncService(context: Context) {
-        syncService = FirestoreSyncService()
-        syncNotificationHelper = SyncNotificationHelper(context)
+        // Service is now initialized in the application class
+        // This method kept for compatibility but does nothing
     }
 
     fun updateCurrentUserEmail(email: String) {
