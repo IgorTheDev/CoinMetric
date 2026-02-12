@@ -29,7 +29,7 @@ class CoinMetricViewModelInviteTest {
     @Test
     fun sendFamilyInvite_addsPendingInvite() {
         val vm = CoinMetricViewModel()
-        vm.updateInviteEmail("family@example.com")
+        vm.updateInviteEmail("Family@Example.com ")
         vm.updateInviteRole("viewer")
 
         vm.sendFamilyInvite()
@@ -224,6 +224,117 @@ class CoinMetricViewModelInviteTest {
 
         assertTrue(vm.settings.value.securitySetupCompleted)
         assertEquals("Мастер безопасности", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun completeSecuritySetup_withoutPin_returnsValidationError() {
+        val vm = CoinMetricViewModel()
+
+        vm.completeSecuritySetup()
+
+        assertEquals("Для завершения включите PIN-защиту", vm.settings.value.syncError)
+        assertEquals(false, vm.settings.value.securitySetupCompleted)
+    }
+
+    @Test
+    fun sendFamilyInvite_duplicatePendingInvite_returnsError() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("family@example.com")
+        vm.sendFamilyInvite()
+        vm.updateInviteEmail("family@example.com")
+
+        vm.sendFamilyInvite()
+
+        assertEquals("Для этого email уже есть активное приглашение", vm.settings.value.inviteError)
+        assertEquals(1, vm.settings.value.pendingInvites.size)
+    }
+
+    @Test
+    fun revokeFamilyInvite_removesPendingInviteAndWritesLog() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("pending@example.com")
+        vm.sendFamilyInvite()
+
+        vm.revokeFamilyInvite("pending@example.com")
+
+        assertEquals(0, vm.settings.value.pendingInvites.size)
+        assertEquals("Отзыв приглашения", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun revokeFamilyInvite_asEditor_returnsPermissionError() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("pending@example.com")
+        vm.sendFamilyInvite()
+        vm.setCurrentUserRole("editor")
+
+        vm.revokeFamilyInvite("pending@example.com")
+
+        assertEquals("Только владелец может отзывать приглашения", vm.settings.value.inviteError)
+        assertEquals(1, vm.settings.value.pendingInvites.size)
+    }
+
+    @Test
+    fun addNewCategory_asViewer_returnsPermissionError() {
+        val vm = CoinMetricViewModel()
+        vm.setCurrentUserRole("viewer")
+        vm.updateCategoriesNewCategoryName("Питомцы")
+
+        vm.addNewCategory()
+
+        assertEquals("Роль просмотра не позволяет добавлять категории", vm.categoriesState.value.error)
+    }
+
+    @Test
+    fun saveMonthlyLimit_asViewer_returnsPermissionError() {
+        val vm = CoinMetricViewModel()
+        vm.setCurrentUserRole("viewer")
+        vm.updateSelectedLimitCategory("Еда")
+        vm.updateMonthlyLimitInput("10000")
+
+        vm.saveMonthlyLimit()
+
+        assertEquals("Роль просмотра не позволяет изменять лимиты", vm.categoriesState.value.error)
+    }
+
+    @Test
+    fun setCurrentUserRole_invalidRole_returnsErrorAndDoesNotChangeRole() {
+        val vm = CoinMetricViewModel()
+
+        vm.setCurrentUserRole("admin")
+
+        assertEquals("owner", vm.settings.value.currentUserRole)
+        assertEquals("Некорректная роль пользователя", vm.settings.value.inviteError)
+    }
+
+    @Test
+    fun setOfflineMode_writesActivityLog() {
+        val vm = CoinMetricViewModel()
+
+        vm.setOfflineMode(true)
+
+        assertEquals("Автономный режим", vm.settings.value.activityLog.first().action)
+    }
+
+    @Test
+    fun clearInviteFeedback_clearsErrorAndSuccessMessage() {
+        val vm = CoinMetricViewModel()
+        vm.updateInviteEmail("bad-email")
+        vm.sendFamilyInvite()
+
+        vm.clearInviteFeedback()
+
+        assertEquals(null, vm.settings.value.inviteError)
+        assertEquals(null, vm.settings.value.inviteSuccessMessage)
+    }
+
+    @Test
+    fun setSubscriptionPlan_invalidPlan_isIgnored() {
+        val vm = CoinMetricViewModel()
+
+        vm.setSubscriptionPlan("enterprise")
+
+        assertEquals("free", vm.settings.value.subscriptionPlan)
     }
 
     @Test
