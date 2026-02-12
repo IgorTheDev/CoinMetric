@@ -80,10 +80,17 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+
+    // Firebase dependencies (using BoM for version management)
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-storage")
+    
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
-    implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
