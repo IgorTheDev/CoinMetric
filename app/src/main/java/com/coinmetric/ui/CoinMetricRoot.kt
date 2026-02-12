@@ -51,6 +51,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.viewinterop.AndroidView
@@ -822,15 +824,26 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Лимиты по категориям", fontWeight = FontWeight.SemiBold)
-                    limitsByCategory.forEach { (title, progress) ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("$title: ${(progress * 100).toInt()}%")
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth(),
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                color = if (progress >= 0.85f) MaterialTheme.colorScheme.error else Color.Unspecified,
-                            )
+                    if (limitsByCategory.isEmpty()) {
+                        Text("Лимиты по категориям пока не заданы")
+                    } else {
+                        limitsByCategory.forEach { (title, progress) ->
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("$title: ${(progress * 100).toInt()}%")
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    color = if (progress >= 0.85f) MaterialTheme.colorScheme.error else Color.Unspecified,
+                                )
+                                if (progress >= 1f) {
+                                    Text(
+                                        "Лимит превышен",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -949,6 +962,8 @@ private object CoinMetricThemeColors {
 @Composable
 private fun CalendarScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val canEditTransactions = settings.currentUserRole != "viewer"
     val transactions = state.allTransactions
     val datesWithTransactions = remember(transactions) { transactions.map { LocalDate.parse(it.date) }.toSet() }
     var selectedDate by remember(transactions) { mutableStateOf(datesWithTransactions.maxOrNull() ?: LocalDate.now()) }
@@ -976,45 +991,63 @@ private fun CalendarScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Операции за ${selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}", fontWeight = FontWeight.SemiBold)
-                    val selectedItems = transactions.filter { it.date == selectedDate.toString() }
-                    if (selectedItems.isEmpty()) {
-                        Text("На выбранную дату операций нет")
-                    } else {
-                        selectedItems.forEach { tx ->
-                            val sign = if (tx.amount >= 0) "+" else "-"
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable {
-                                            vm.startEditingTransaction(tx)
-                                            openAddScreen()
-                                        },
-                                ) {
-                                    Text(tx.title, fontWeight = FontWeight.Medium)
-                                    Text(tx.category, style = MaterialTheme.typography.bodySmall)
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("$sign${kotlin.math.abs(tx.amount).toRubCurrency()}")
-                                    IconButton(onClick = { vm.deleteTransaction(tx) }) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Delete,
-                                            contentDescription = "Удалить транзакцию",
-                                            tint = MaterialTheme.colorScheme.error,
-                                        )
+                    AnimatedContent(
+                        targetState = selectedDate,
+                        label = "calendar_selected_date",
+                    ) { date ->
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Операции за ${date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}", fontWeight = FontWeight.SemiBold)
+                            val selectedItems = transactions.filter { it.date == date.toString() }
+                            if (selectedItems.isEmpty()) {
+                                Text("На выбранную дату операций нет")
+                            } else {
+                                selectedItems.forEach { tx ->
+                                    val sign = if (tx.amount >= 0) "+" else "-"
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable {
+                                                    vm.startEditingTransaction(tx)
+                                                    openAddScreen()
+                                                },
+                                        ) {
+                                            Text(tx.title, fontWeight = FontWeight.Medium)
+                                            Text(tx.category, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("$sign${kotlin.math.abs(tx.amount).toRubCurrency()}")
+                                            IconButton(
+                                                onClick = { vm.deleteTransaction(tx) },
+                                                enabled = canEditTransactions,
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Delete,
+                                                    contentDescription = "Удалить транзакцию",
+                                                    tint = if (canEditTransactions) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
+        if (!canEditTransactions) {
+            item {
+                Text(
+                    "Для роли просмотра удаление операций недоступно.",
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         }
         item { Spacer(Modifier.height(16.dp)) }
@@ -1028,10 +1061,7 @@ fun CalendarView(
     onDateSelected: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var currentMonth by remember { mutableStateOf(YearMonth.from(selectedDate)) }
-    val firstDay = currentMonth.atDay(1)
-    val leadingEmpty = (firstDay.dayOfWeek.value + 6) % 7
-    val monthDays = currentMonth.lengthOfMonth()
+    var currentMonth by remember(selectedDate) { mutableStateOf(YearMonth.from(selectedDate)) }
     val monthFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru", "RU"))
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1055,34 +1085,42 @@ fun CalendarView(
             }
         }
 
-        val totalCells = ((leadingEmpty + monthDays + 6) / 7) * 7
-        for (weekStart in 0 until totalCells step 7) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (offset in 0..6) {
-                    val index = weekStart + offset
-                    val dayNumber = index - leadingEmpty + 1
-                    if (dayNumber !in 1..monthDays) {
-                        Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
-                    } else {
-                        val date = currentMonth.atDay(dayNumber)
-                        val isSelected = date == selectedDate
-                        val hasTransactions = date in datesWithTransactions
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                                .border(
-                                    width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                )
-                                .background(
-                                    if (hasTransactions) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                    else Color.Transparent,
-                                )
-                                .clickable { onDateSelected(date) },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(dayNumber.toString(), fontWeight = if (hasTransactions) FontWeight.Bold else FontWeight.Normal)
+        Crossfade(targetState = currentMonth, label = "calendar_month_crossfade") { month ->
+            val monthFirstDay = month.atDay(1)
+            val monthLeadingEmpty = (monthFirstDay.dayOfWeek.value + 6) % 7
+            val monthLength = month.lengthOfMonth()
+            val totalCells = ((monthLeadingEmpty + monthLength + 6) / 7) * 7
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (weekStart in 0 until totalCells step 7) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        for (offset in 0..6) {
+                            val index = weekStart + offset
+                            val dayNumber = index - monthLeadingEmpty + 1
+                            if (dayNumber !in 1..monthLength) {
+                                Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                            } else {
+                                val date = month.atDay(dayNumber)
+                                val isSelected = date == selectedDate
+                                val hasTransactions = date in datesWithTransactions
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .border(
+                                            width = if (isSelected) 2.dp else 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                        )
+                                        .background(
+                                            if (hasTransactions) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                            else Color.Transparent,
+                                        )
+                                        .clickable { onDateSelected(date) },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(dayNumber.toString(), fontWeight = if (hasTransactions) FontWeight.Bold else FontWeight.Normal)
+                                }
+                            }
                         }
                     }
                 }

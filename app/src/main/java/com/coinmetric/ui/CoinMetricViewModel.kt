@@ -198,6 +198,10 @@ class CoinMetricViewModel : ViewModel() {
             error = null,
             successMessage = "Категория добавлена",
         )
+        appendActivityLog(
+            action = "Создана категория",
+            target = categoryName,
+        )
     }
 
     fun updateCategoriesNewCategoryName(value: String) {
@@ -236,6 +240,10 @@ class CoinMetricViewModel : ViewModel() {
             monthlyLimits = categoryMonthlyLimits.toMap(),
             error = null,
             successMessage = "Лимит на месяц сохранён",
+        )
+        appendActivityLog(
+            action = "Обновление лимита",
+            target = "${state.selectedCategory}: ${limit.toRubCurrency()}",
         )
     }
 
@@ -341,11 +349,22 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun deleteTransaction(transaction: SampleTransaction) {
+        if (_settings.value.currentUserRole == "viewer") {
+            _addState.value = _addState.value.copy(
+                error = "Роль просмотра не позволяет удалять операции",
+                successMessage = null,
+            )
+            return
+        }
         val index = transactions.indexOf(transaction)
         if (index == -1) return
         transactions.removeAt(index)
         _dashboard.value = buildDashboardState(isLoading = false)
         enqueueSyncChanges(1)
+        appendActivityLog(
+            action = "Удаление операции",
+            target = "${transaction.category}: ${transaction.amount.toRubCurrency()}",
+        )
     }
     
     fun resetAddState() {

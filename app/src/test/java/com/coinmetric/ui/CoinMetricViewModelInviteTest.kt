@@ -178,4 +178,41 @@ class CoinMetricViewModelInviteTest {
         assertEquals(false, vm.settings.value.biometricProtectionEnabled)
     }
 
+    @Test
+    fun deleteTransaction_asViewer_returnsPermissionError() {
+        val vm = CoinMetricViewModel()
+        val transaction = vm.dashboard.value.allTransactions.first()
+        vm.setCurrentUserRole("viewer")
+
+        vm.deleteTransaction(transaction)
+
+        assertEquals("Роль просмотра не позволяет удалять операции", vm.addState.value.error)
+        assertEquals(3, vm.dashboard.value.allTransactions.size)
+    }
+
+    @Test
+    fun saveMonthlyLimit_writesActivityLog() {
+        val vm = CoinMetricViewModel()
+        vm.updateSelectedLimitCategory("Еда")
+        vm.updateMonthlyLimitInput("17000")
+
+        vm.saveMonthlyLimit()
+
+        val log = vm.settings.value.activityLog.first()
+        assertEquals("Обновление лимита", log.action)
+        assertTrue(log.target.contains("Еда"))
+    }
+
+    @Test
+    fun addNewCategory_writesActivityLog() {
+        val vm = CoinMetricViewModel()
+        vm.updateCategoriesNewCategoryName("Здоровье")
+
+        vm.addNewCategory()
+
+        val log = vm.settings.value.activityLog.first()
+        assertEquals("Создана категория", log.action)
+        assertEquals("Здоровье", log.target)
+    }
+
 }

@@ -59,6 +59,16 @@ class CoinMetricNavigationUiTest {
         composeRule.onNodeWithText("Сохранить изменения").assertIsDisplayed()
     }
 
+
+    @Test
+    fun viewerRoleSeesDeleteRestrictionOnCalendar() {
+        composeRule.onNodeWithContentDescription("Настройки").performClick()
+        composeRule.onNodeWithText("Просмотр").performClick()
+        composeRule.onNodeWithContentDescription("Календарь").performClick()
+
+        composeRule.onNodeWithText("Для роли просмотра удаление операций недоступно.").assertIsDisplayed()
+    }
+
     private fun ComposeTestRule.waitForAnyTransaction(candidates: List<String>): String? {
         val deadlineMs = 5_000L
         val pollStepMs = 250L
