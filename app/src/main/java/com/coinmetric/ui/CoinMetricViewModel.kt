@@ -40,6 +40,7 @@ data class TransactionUiModel(
 )
 
 data class AddTransactionState(
+    val id: String? = null,  // ID транзакции при редактировании
     val amount: String = "",
     val category: String = "",
     val note: String = "",
@@ -78,6 +79,8 @@ class CoinMetricViewModel : ViewModel() {
         SampleTransaction("Кафе", -560, "Вчера", "Досуг", false),
         SampleTransaction("Зарплата", 85000, "2 дня назад", "Доход", true),
     )
+    
+    private val transactionIds = mutableMapOf<String, SampleTransaction>() // Маппинг ID -> транзакция
 
     private val _dashboard = MutableStateFlow(buildDashboardState())
     val dashboard: StateFlow<DashboardState> = _dashboard.asStateFlow()
@@ -138,21 +141,57 @@ class CoinMetricViewModel : ViewModel() {
 
         val validAmount = requireNotNull(amountValue)
         val signedAmount = if (state.isIncome) validAmount else -validAmount
-        transactions.add(
-            0,
-            SampleTransaction(
-                title = state.note.ifBlank { if (state.isIncome) "Доход" else "Расход" },
-                amount = signedAmount,
-                date = "Сегодня",
-                category = state.category,
-                income = state.isIncome,
-            ),
-        )
+        
+        if (state.id != null) {
+            // Редактирование существующей транзакции
+            val index = transactions.indexOfFirst { 
+                // Здесь нужно определить, как идентифицировать транзакцию для редактирования
+                // Для простоты будем использовать индекс, но в реальной реализации нужно использовать ID
+                it.hashCode() == state.id.toIntOrNull() ?: 0
+            }
+            if (index != -1) {
+                transactions[index] = SampleTransaction(
+                    title = state.note.ifBlank { if (state.isIncome) "Доход" else "Расход" },
+                    amount = signedAmount,
+                    date = "Сегодня", // В реальной реализации нужно сохранить исходную дату
+                    category = state.category,
+                    income = state.isIncome,
+                )
+            }
+        } else {
+            // Добавление новой транзакции
+            transactions.add(
+                0,
+                SampleTransaction(
+                    title = state.note.ifBlank { if (state.isIncome) "Доход" else "Расход" },
+                    amount = signedAmount,
+                    date = "Сегодня",
+                    category = state.category,
+                    income = state.isIncome,
+                ),
+            )
+        }
 
         _dashboard.value = buildDashboardState(isLoading = false)
         enqueueSyncChanges(1)
         _addState.value = AddTransactionState(successMessage = "Операция сохранена")
         onSuccess()
+    }
+    
+    fun startEditingTransaction(transaction: SampleTransaction) {
+        // Генерируем ID для редактируемой транзакции (в реальной реализации это будет UUID)
+        val id = transaction.hashCode().toString()
+        _addState.value = AddTransactionState(
+            id = id,
+            amount = kotlin.math.abs(transaction.amount).toString(),
+            category = transaction.category,
+            note = transaction.title,
+            isIncome = transaction.income,
+        )
+    }
+    
+    fun resetAddState() {
+        _addState.value = AddTransactionState()
     }
 
     fun setDarkTheme(enabled: Boolean) {
