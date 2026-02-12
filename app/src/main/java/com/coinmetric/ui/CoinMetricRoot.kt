@@ -89,6 +89,7 @@ import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.PercentFormatter
+import com.coinmetric.ui.components.GoogleSignInButton
 
 private sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     data object Dashboard : Screen("dashboard", "Главная", Icons.Filled.Home)
@@ -1363,6 +1364,22 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Un
                     Text("Общие настройки", fontWeight = FontWeight.SemiBold)
                     Text("Валюта по умолчанию: RUB")
                     SettingRow("Уведомления о лимитах", settings.recurringRemindersEnabled) { vm.setRecurringReminders(it) }
+                    
+                    // Google Sign In section
+                    Text("Синхронизация с Google", fontWeight = FontWeight.SemiBold)
+                    GoogleSignInButton(
+                        onSignInSuccess = { account ->
+                            // Handle successful sign-in
+                            vm.setGoogleSync(true)
+                            // Here we would typically store the account info
+                        },
+                        onSignInFailed = {
+                            // Handle sign-in failure
+                            println("Google Sign In failed")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
                     Button(onClick = {}, modifier = Modifier.fillMaxWidth()) {
                         Text("Выйти из аккаунта")
                     }
