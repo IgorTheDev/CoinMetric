@@ -81,7 +81,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
 
     // Firebase dependencies (using BoM for version management)
     implementation("com.google.firebase:firebase-analytics")
