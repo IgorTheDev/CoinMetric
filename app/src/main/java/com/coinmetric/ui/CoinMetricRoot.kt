@@ -46,12 +46,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.border
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.toArgb
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -65,6 +67,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.coinmetric.ui.theme.CoinMetricTheme
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.charts.PieChart
+import com.github.mikephil.charting.components.Legend
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
+import com.github.mikephil.charting.data.PieData
+import com.github.mikephil.charting.data.PieDataSet
+import com.github.mikephil.charting.data.PieEntry
+import com.github.mikephil.charting.formatter.PercentFormatter
 
 private sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     data object Dashboard : Screen("/", "Главная", Icons.Filled.Home)
@@ -329,7 +341,12 @@ private fun DashboardScreen(vm: CoinMetricViewModel) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Тренд расходов", fontWeight = FontWeight.SemiBold)
-                    Text(state.expenseTrendText)
+                    ExpenseTrendChart(state.expenseTrend)
+                    Text(
+                        state.expenseTrendText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -343,6 +360,52 @@ private fun DashboardScreen(vm: CoinMetricViewModel) {
         }
         item { Spacer(Modifier.height(72.dp)) }
     }
+}
+
+@Composable
+private fun ExpenseTrendChart(points: List<Int>) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+    val onSurface = MaterialTheme.colorScheme.onSurface
+
+    AndroidView(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp),
+        factory = { context ->
+            LineChart(context).apply {
+                description.isEnabled = false
+                setNoDataText("Недостаточно данных")
+                setTouchEnabled(false)
+                setPinchZoom(false)
+                axisRight.isEnabled = false
+                xAxis.isEnabled = false
+                axisLeft.apply {
+                    setDrawGridLines(true)
+                    gridColor = surfaceVariant.toArgb()
+                    textColor = onSurface.toArgb()
+                }
+                legend.isEnabled = false
+            }
+        },
+        update = { chart ->
+            val entries = points.mapIndexed { index, value ->
+                Entry(index.toFloat(), kotlin.math.abs(value).toFloat())
+            }
+            val dataSet = LineDataSet(entries, "Расходы").apply {
+                color = primaryColor.toArgb()
+                setCircleColor(primaryColor.toArgb())
+                lineWidth = 2.5f
+                circleRadius = 3.5f
+                setDrawValues(false)
+                setDrawFilled(true)
+                fillColor = primaryColor.copy(alpha = 0.2f).toArgb()
+            }
+
+            chart.data = LineData(dataSet)
+            chart.invalidate()
+        },
+    )
 }
 
 @Composable
@@ -554,6 +617,7 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) 
                     if (categoryDistribution.isEmpty()) {
                         Text("Пока нет расходных операций для анализа")
                     } else {
+                        ExpensePieChart(categoryDistribution)
                         categoryDistribution.forEach { (title, percent) ->
                             Text("$title — ${(percent * 100).toInt()}%")
                         }
@@ -625,6 +689,68 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) 
         }
         item { Spacer(Modifier.height(72.dp)) }
     }
+}
+
+@Composable
+private fun ExpensePieChart(categoryDistribution: List<Pair<String, Float>>) {
+    val colors = listOf(
+        CoinMetricThemeColors.Expense,
+        CoinMetricThemeColors.Income,
+        CoinMetricThemeColors.Violet,
+        CoinMetricThemeColors.Orange,
+        CoinMetricThemeColors.Yellow,
+    )
+
+    AndroidView(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp),
+        factory = { context ->
+            PieChart(context).apply {
+                description.isEnabled = false
+                isDrawHoleEnabled = true
+                setUsePercentValues(true)
+                setEntryLabelColor(Color.White.toArgb())
+                setEntryLabelTextSize(12f)
+                legend.apply {
+                    isEnabled = true
+                    orientation = Legend.LegendOrientation.HORIZONTAL
+                    horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
+                    verticalAlignment = Legend.LegendVerticalAlignment.BOTTOM
+                    textSize = 12f
+                }
+            }
+        },
+        update = { chart ->
+            val entries = categoryDistribution.map { (title, percent) ->
+                PieEntry(percent, title)
+            }
+
+            val colorInts = categoryDistribution.indices.map { index ->
+                colors[index % colors.size].toArgb()
+            }
+
+            val dataSet = PieDataSet(entries, "").apply {
+                this.colors = colorInts
+                valueTextSize = 12f
+                valueTextColor = Color.White.toArgb()
+                sliceSpace = 2f
+            }
+
+            chart.data = PieData(dataSet).apply {
+                setValueFormatter(PercentFormatter(chart))
+            }
+            chart.invalidate()
+        },
+    )
+}
+
+private object CoinMetricThemeColors {
+    val Income = Color(0xFF10B981)
+    val Expense = Color(0xFFEF4444)
+    val Violet = Color(0xFFA855F7)
+    val Yellow = Color(0xFFEAB308)
+    val Orange = Color(0xFFF97316)
 }
 
 @Composable

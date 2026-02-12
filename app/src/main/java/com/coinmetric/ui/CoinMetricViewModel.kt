@@ -29,6 +29,7 @@ data class DashboardState(
     val limitsUsedPercent: Int = 67,
     val avgDailyExpense: Int = 2_940,
     val expenseTrendText: String = "-12% к прошлой неделе",
+    val expenseTrend: List<Int> = emptyList(),
     val latestTransactions: List<String> = emptyList(),
     val recentTransactions: List<TransactionUiModel> = emptyList(),
     val allTransactions: List<TransactionUiModel> = emptyList(),
@@ -359,11 +360,18 @@ class CoinMetricViewModel : ViewModel() {
     private fun buildDashboardState(isLoading: Boolean = true): DashboardState {
         val totalIncome = transactions.filter { it.amount > 0 }.sumOf { it.amount }
         val totalExpense = transactions.filter { it.amount < 0 }.sumOf { -it.amount }
+        val expenseTrend = transactions
+            .filter { it.amount < 0 }
+            .take(7)
+            .map { it.amount }
+            .ifEmpty { listOf(0) }
+            .reversed()
         return DashboardState(
             isLoading = isLoading,
             balance = totalIncome - totalExpense,
             income = totalIncome,
             expense = totalExpense,
+            expenseTrend = expenseTrend,
             recentTransactions = transactions.take(5).map { tx ->
                 TransactionUiModel(
                     id = tx.id,
