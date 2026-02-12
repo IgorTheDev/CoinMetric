@@ -113,6 +113,7 @@ class CoinMetricViewModel : ViewModel() {
     private val allowedRoles = setOf("owner", "editor", "viewer")
     private val allowedInviteRoles = setOf("editor", "viewer")
     private val allowedSubscriptionPlans = setOf("free", "pro")
+    private val allowedInviteStatuses = setOf("Ожидает принятия", "Принято", "Отклонено")
 
     private val transactions = mutableListOf(
         SampleTransaction("Продукты", -1800, "2023-10-27", "Еда", false),
@@ -398,11 +399,24 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun setDarkTheme(enabled: Boolean) {
+        if (_settings.value.darkThemeEnabled == enabled) return
         _settings.value = _settings.value.copy(darkThemeEnabled = enabled)
+        appendActivityLog(
+            action = "Тема приложения",
+            target = if (enabled) "Тёмная" else "Светлая",
+        )
     }
 
     fun setGoogleSync(enabled: Boolean) {
-        _settings.value = _settings.value.copy(googleSyncEnabled = enabled)
+        if (_settings.value.googleSyncEnabled == enabled) return
+        _settings.value = _settings.value.copy(
+            googleSyncEnabled = enabled,
+            syncError = if (!enabled) "Синхронизация отключена пользователем" else null,
+        )
+        appendActivityLog(
+            action = "Google Sync",
+            target = if (enabled) "Включен" else "Отключен",
+        )
         if (enabled) processSyncQueue()
     }
 
@@ -416,6 +430,7 @@ class CoinMetricViewModel : ViewModel() {
 
     fun setSubscriptionPlan(plan: String) {
         if (!allowedSubscriptionPlans.contains(plan)) return
+        if (_settings.value.subscriptionPlan == plan) return
         _settings.value = _settings.value.copy(subscriptionPlan = plan)
         appendActivityLog(
             action = "План подписки",
@@ -483,6 +498,15 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun retrySync() {
+        val current = _settings.value
+        if (!current.googleSyncEnabled) {
+            _settings.value = current.copy(syncError = "Включите Google Sync для повторной отправки")
+            return
+        }
+        if (current.isOfflineMode) {
+            _settings.value = current.copy(syncError = "Отключите автономный режим для синхронизации")
+            return
+        }
         processSyncQueue()
     }
 
@@ -495,11 +519,19 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun updateInviteEmail(value: String) {
-        _settings.value = _settings.value.copy(inviteEmail = value, inviteError = null)
+        _settings.value = _settings.value.copy(
+            inviteEmail = value,
+            inviteError = null,
+            inviteSuccessMessage = null,
+        )
     }
 
     fun updateInviteRole(role: String) {
-        _settings.value = _settings.value.copy(inviteRole = if (allowedInviteRoles.contains(role)) role else "editor")
+        _settings.value = _settings.value.copy(
+            inviteRole = if (allowedInviteRoles.contains(role)) role else "editor",
+            inviteError = null,
+            inviteSuccessMessage = null,
+        )
     }
 
     fun clearInviteFeedback() {
@@ -541,12 +573,13 @@ class CoinMetricViewModel : ViewModel() {
     }
 
     fun revokeFamilyInvite(email: String) {
+        val normalizedEmail = email.trim().lowercase(Locale.getDefault())
         val current = _settings.value
         if (current.currentUserRole != "owner") {
             _settings.value = current.copy(inviteError = "Только владелец может отзывать приглашения")
             return
         }
-        val invite = current.pendingInvites.firstOrNull { it.email.equals(email, ignoreCase = true) }
+        val invite = current.pendingInvites.firstOrNull { it.email.equals(normalizedEmail, ignoreCase = true) }
         if (invite == null) {
             _settings.value = current.copy(inviteError = "Приглашение не найдено")
             return
@@ -555,21 +588,26 @@ class CoinMetricViewModel : ViewModel() {
             _settings.value = current.copy(inviteError = "Можно отозвать только ожидающее приглашение")
             return
         }
-        val updated = current.pendingInvites.filterNot { it.email.equals(email, ignoreCase = true) }
+        val updated = current.pendingInvites.filterNot { it.email.equals(normalizedEmail, ignoreCase = true) }
         _settings.value = current.copy(
             pendingInvites = updated,
             inviteError = null,
-            inviteSuccessMessage = "Приглашение для $email отозвано",
+            inviteSuccessMessage = "Приглашение для $normalizedEmail отозвано",
         )
         appendActivityLog(
             action = "Отзыв приглашения",
-            target = email,
+            target = normalizedEmail,
         )
     }
 
     fun updateInviteStatus(email: String, newStatus: String) {
+        val normalizedEmail = email.trim().lowercase(Locale.getDefault())
+        if (!allowedInviteStatuses.contains(newStatus) || newStatus == "Ожидает принятия") {
+            _settings.value = _settings.value.copy(inviteError = "Некорректный статус приглашения")
+            return
+        }
         val current = _settings.value
-        val invite = current.pendingInvites.firstOrNull { it.email == email }
+        val invite = current.pendingInvites.firstOrNull { it.email.equals(normalizedEmail, ignoreCase = true) }
         if (invite == null) {
             _settings.value = current.copy(inviteError = "Приглашение не найдено")
             return
@@ -580,12 +618,16 @@ class CoinMetricViewModel : ViewModel() {
         }
 
         val updated = current.pendingInvites.map {
-            if (it.email == email) it.copy(status = newStatus) else it
+            if (it.email.equals(normalizedEmail, ignoreCase = true)) it.copy(status = newStatus) else it
         }
-        _settings.value = current.copy(pendingInvites = updated, inviteError = null)
+        _settings.value = current.copy(
+            pendingInvites = updated,
+            inviteError = null,
+            inviteSuccessMessage = "Статус приглашения обновлён",
+        )
         appendActivityLog(
             action = "Обновление статуса приглашения",
-            target = "$email → $newStatus",
+            target = "$normalizedEmail → $newStatus",
         )
     }
 
@@ -594,7 +636,8 @@ class CoinMetricViewModel : ViewModel() {
             _settings.value = _settings.value.copy(inviteError = "Некорректная роль пользователя")
             return
         }
-        _settings.value = _settings.value.copy(currentUserRole = role)
+        if (_settings.value.currentUserRole == role) return
+        _settings.value = _settings.value.copy(currentUserRole = role, inviteError = null)
         appendActivityLog(
             action = "Смена роли",
             target = mapRoleLabel(role),
@@ -647,6 +690,7 @@ class CoinMetricViewModel : ViewModel() {
             _settings.value = _settings.value.copy(
                 isSyncInProgress = false,
                 pendingSyncItems = 0,
+                syncError = null,
                 lastSyncTimeLabel = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             )
         }
