@@ -553,6 +553,25 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 }
             }
             item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        modifier = Modifier.weight(1f),
+                        value = state.categoryLimitAmount,
+                        onValueChange = vm::updateCategoryLimitAmount,
+                        enabled = canEditTransactions,
+                        label = { Text("Лимит на месяц") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+                    Button(
+                        onClick = vm::setCategoryMonthlyLimit,
+                        enabled = canEditTransactions,
+                    ) {
+                        Text("Лимит")
+                    }
+                }
+            }
+            item {
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = state.note,
@@ -579,6 +598,9 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 item { Text(message, color = MaterialTheme.colorScheme.error) }
             }
             state.successMessage?.let { message ->
+                item { Text(message, color = MaterialTheme.colorScheme.primary) }
+            }
+            state.categoryLimitMessage?.let { message ->
                 item { Text(message, color = MaterialTheme.colorScheme.primary) }
             }
         }
@@ -659,12 +681,7 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) 
             title to amount.toFloat() / totalExpenses
         }
 
-    val limitsByCategory = mapOf(
-        "Еда" to 15_000,
-        "Транспорт" to 6_000,
-        "Развлечения" to 7_500,
-        "Досуг" to 5_000,
-    ).map { (title, limit) ->
+    val limitsByCategory = state.categoryMonthlyLimits.map { (title, limit) ->
         val spent = expensesByCategory[title] ?: 0
         title to (spent.toFloat() / limit).coerceIn(0f, 1f)
     }
@@ -710,15 +727,19 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Лимиты по категориям", fontWeight = FontWeight.SemiBold)
-                    limitsByCategory.forEach { (title, progress) ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("$title: ${(progress * 100).toInt()}%")
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth(),
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                color = if (progress >= 0.85f) MaterialTheme.colorScheme.error else Color.Unspecified,
-                            )
+                    if (limitsByCategory.isEmpty()) {
+                        Text("Лимиты пока не установлены. Добавьте их на экране «Добавить».")
+                    } else {
+                        limitsByCategory.forEach { (title, progress) ->
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("$title: ${(progress * 100).toInt()}%")
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    color = if (progress >= 0.85f) MaterialTheme.colorScheme.error else Color.Unspecified,
+                                )
+                            }
                         }
                     }
                 }

@@ -31,6 +31,7 @@ data class DashboardState(
     val allTransactions: List<SampleTransaction> = emptyList(),
     val latestTransactions: List<String> = emptyList(),
     val recentTransactions: List<TransactionUiModel> = emptyList(),
+    val categoryMonthlyLimits: Map<String, Int> = emptyMap(),
 )
 
 data class TransactionUiModel(
@@ -48,6 +49,9 @@ data class AddTransactionState(
     val note: String = "",
     val categories: List<String> = emptyList(),
     val newCategoryName: String = "",
+    val categoryLimitAmount: String = "",
+    val categoryLimitMessage: String? = null,
+    val categoryLimits: Map<String, Int> = emptyMap(),
     val isIncome: Boolean = false,
     val amountError: String? = null,
     val categoryError: String? = null,
@@ -94,6 +98,11 @@ class CoinMetricViewModel : ViewModel() {
     )
 
     private val categories = mutableListOf("Еда", "Транспорт", "Досуг", "Коммунальные", "Доход")
+    private val categoryMonthlyLimits = mutableMapOf(
+        "Еда" to 15_000,
+        "Транспорт" to 6_000,
+        "Досуг" to 5_000,
+    )
 
     private val _dashboard = MutableStateFlow(DashboardState())
     val dashboard: StateFlow<DashboardState> = _dashboard.asStateFlow()
@@ -106,7 +115,10 @@ class CoinMetricViewModel : ViewModel() {
 
     init {
         syncCategoriesWithTransactions()
-        _addState.value = _addState.value.copy(categories = categories.toList())
+        _addState.value = _addState.value.copy(
+            categories = categories.toList(),
+            categoryLimits = categoryMonthlyLimits.toMap(),
+        )
         viewModelScope.launch {
             delay(800)
             _dashboard.value = buildDashboardState(isLoading = false)
@@ -134,7 +146,39 @@ class CoinMetricViewModel : ViewModel() {
             categoryError = null,
             error = null,
             successMessage = null,
+            categoryLimitMessage = null,
         )
+    }
+
+    fun updateCategoryLimitAmount(value: String) {
+        _addState.value = _addState.value.copy(
+            categoryLimitAmount = value,
+            categoryLimitMessage = null,
+            error = null,
+        )
+    }
+
+    fun setCategoryMonthlyLimit() {
+        val state = _addState.value
+        if (state.category.isBlank()) {
+            _addState.value = state.copy(error = "Сначала выберите категорию")
+            return
+        }
+
+        val limit = state.categoryLimitAmount.replace(" ", "").toIntOrNull()
+        if (limit == null || limit <= 0) {
+            _addState.value = state.copy(error = "Введите корректный лимит")
+            return
+        }
+
+        categoryMonthlyLimits[state.category] = limit
+        _addState.value = state.copy(
+            categoryLimitAmount = "",
+            categoryLimitMessage = "Лимит для «${state.category}» сохранён",
+            error = null,
+            categoryLimits = categoryMonthlyLimits.toMap(),
+        )
+        _dashboard.value = buildDashboardState(isLoading = false)
     }
 
     fun updateNewCategoryName(value: String) {
@@ -161,6 +205,7 @@ class CoinMetricViewModel : ViewModel() {
             category = categoryName,
             newCategoryName = "",
             error = null,
+            categoryLimits = categoryMonthlyLimits.toMap(),
         )
     }
 
@@ -222,6 +267,7 @@ class CoinMetricViewModel : ViewModel() {
         enqueueSyncChanges(1)
         _addState.value = AddTransactionState(
             categories = categories.toList(),
+            categoryLimits = categoryMonthlyLimits.toMap(),
             successMessage = "Операция сохранена",
         )
         onSuccess()
@@ -233,6 +279,7 @@ class CoinMetricViewModel : ViewModel() {
             id = id,
             amount = kotlin.math.abs(transaction.amount).toString(),
             categories = categories.toList(),
+            categoryLimits = categoryMonthlyLimits.toMap(),
             category = transaction.category,
             note = transaction.title,
             isIncome = transaction.income,
@@ -248,7 +295,10 @@ class CoinMetricViewModel : ViewModel() {
     }
     
     fun resetAddState() {
-        _addState.value = AddTransactionState(categories = categories.toList())
+        _addState.value = AddTransactionState(
+            categories = categories.toList(),
+            categoryLimits = categoryMonthlyLimits.toMap(),
+        )
     }
 
     fun setDarkTheme(enabled: Boolean) {
@@ -341,7 +391,12 @@ class CoinMetricViewModel : ViewModel() {
         val totalExpense = transactions.filter { it.amount < 0 }.sumOf { -it.amount }
         
         val avgDaily = if (transactions.any { it.amount < 0 }) totalExpense / 30 else 0
-        val limitPercent = if (totalExpense > 0) (totalExpense.toFloat() / 100000 * 100).toInt().coerceIn(0, 100) else 0
+        val totalLimit = categoryMonthlyLimits.values.sum().coerceAtLeast(1)
+        val limitPercent = if (totalExpense > 0) {
+            (totalExpense.toFloat() / totalLimit * 100).toInt().coerceIn(0, 100)
+        } else {
+            0
+        }
 
         val trend = listOf(1200, 4500, 3200, 8000, 5600, 9100, 7200)
 
@@ -358,6 +413,7 @@ class CoinMetricViewModel : ViewModel() {
             recentTransactions = transactions.map { tx ->
                 TransactionUiModel(tx.title, tx.amount, tx.date, tx.category, tx.income)
             },
+            categoryMonthlyLimits = categoryMonthlyLimits.toMap(),
             latestTransactions = transactions.take(10).map { tx ->
                 val sign = if (tx.amount >= 0) "+" else "-"
                 "$sign${kotlin.math.abs(tx.amount).toRubCurrency()} · ${tx.title} · ${tx.date}"
