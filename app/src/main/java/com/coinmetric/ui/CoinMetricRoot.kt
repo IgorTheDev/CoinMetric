@@ -421,8 +421,10 @@ private fun MetricCard(title: String, value: String, modifier: Modifier = Modifi
 @Composable
 private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
     val state by vm.addState.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     var calculatorExpanded by remember { mutableStateOf(false) }
     var expression by remember { mutableStateOf(state.amount) }
+    val canEditTransactions = settings.currentUserRole == "owner" || settings.currentUserRole == "editor"
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -437,6 +439,7 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 value = state.amount,
                 onValueChange = vm::updateAmount,
+                enabled = canEditTransactions,
                 label = { Text("Сумма") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 isError = state.amountError != null,
@@ -475,6 +478,7 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 value = state.category,
                 onValueChange = vm::updateCategory,
+                enabled = canEditTransactions,
                 label = { Text("Категория") },
                 isError = state.categoryError != null,
                 singleLine = true,
@@ -488,13 +492,22 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 value = state.note,
                 onValueChange = vm::updateNote,
+                enabled = canEditTransactions,
                 label = { Text("Заметка") },
             )
         }
         item {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Доход")
-                Switch(checked = state.isIncome, onCheckedChange = vm::updateIncomeFlag)
+                Switch(checked = state.isIncome, onCheckedChange = vm::updateIncomeFlag, enabled = canEditTransactions)
+            }
+        }
+        if (!canEditTransactions) {
+            item {
+                Text(
+                    "Роль просмотра не позволяет добавлять операции. Обратитесь к владельцу за правами редактора.",
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         }
         state.error?.let { message ->
@@ -507,6 +520,7 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
             Button(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { vm.saveTransaction(goToDashboard) },
+                enabled = canEditTransactions,
             ) {
                 Text(if (state.id == null) "Сохранить" else "Сохранить изменения")
             }
@@ -889,6 +903,7 @@ fun CalendarView(
 @Composable
 private fun SettingsScreen(vm: CoinMetricViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val canManageMembers = settings.currentUserRole == "owner"
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text(
@@ -935,6 +950,34 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Текущая роль", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Для проверки сценариев доступа можно переключить активную роль.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = settings.currentUserRole == "owner",
+                            onClick = { vm.setCurrentUserRole("owner") },
+                            label = { Text("Владелец") },
+                        )
+                        FilterChip(
+                            selected = settings.currentUserRole == "editor",
+                            onClick = { vm.setCurrentUserRole("editor") },
+                            label = { Text("Редактор") },
+                        )
+                        FilterChip(
+                            selected = settings.currentUserRole == "viewer",
+                            onClick = { vm.setCurrentUserRole("viewer") },
+                            label = { Text("Просмотр") },
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Семейный доступ", fontWeight = FontWeight.SemiBold)
                     Text(
                         "Пригласите участника семьи, чтобы совместно вести бюджет и видеть общие лимиты.",
@@ -943,6 +986,7 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                     OutlinedTextField(
                         value = settings.inviteEmail,
                         onValueChange = vm::updateInviteEmail,
+                        enabled = canManageMembers,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Email участника") },
                         isError = settings.inviteError != null,
@@ -955,16 +999,29 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = settings.inviteRole == "viewer",
+                            enabled = canManageMembers,
                             onClick = { vm.updateInviteRole("viewer") },
                             label = { Text("Просмотр") },
                         )
                         FilterChip(
                             selected = settings.inviteRole == "editor",
+                            enabled = canManageMembers,
                             onClick = { vm.updateInviteRole("editor") },
                             label = { Text("Редактор") },
                         )
                     }
-                    Button(onClick = vm::sendFamilyInvite, modifier = Modifier.fillMaxWidth()) {
+                    if (!canManageMembers) {
+                        Text(
+                            "Управление приглашениями доступно только владельцу бюджета.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Button(
+                        onClick = vm::sendFamilyInvite,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = canManageMembers,
+                    ) {
                         Text("Отправить приглашение")
                     }
                     settings.inviteSuccessMessage?.let { successText ->
@@ -1009,10 +1066,16 @@ private fun SettingsScreen(vm: CoinMetricViewModel) {
                                 }
                                 if (invite.status == "Ожидает принятия") {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Button(onClick = { vm.updateInviteStatus(invite.email, "Принято") }) {
+                                        Button(
+                                            onClick = { vm.updateInviteStatus(invite.email, "Принято") },
+                                            enabled = canManageMembers,
+                                        ) {
                                             Text("Принять")
                                         }
-                                        Button(onClick = { vm.updateInviteStatus(invite.email, "Отклонено") }) {
+                                        Button(
+                                            onClick = { vm.updateInviteStatus(invite.email, "Отклонено") },
+                                            enabled = canManageMembers,
+                                        ) {
                                             Text("Отклонить")
                                         }
                                     }
