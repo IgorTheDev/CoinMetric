@@ -1,5 +1,6 @@
 package com.coinmetric.sync
 
+import android.util.Log
 import com.coinmetric.data.model.Category
 import com.coinmetric.data.model.CategoryLimit
 import com.coinmetric.data.model.CollaborationInvite
@@ -17,6 +18,7 @@ class FirestoreSyncService(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
     suspend fun pushSnapshot(accountEmail: String, snapshot: SyncSnapshot) {
+        Log.d("FirestoreSyncService", "Starting push sync for account: $accountEmail")
         val root = firestore.collection("budgets").document(accountEmail)
         uploadCollection(root.collection("categories"), snapshot.categories.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
         uploadCollection(root.collection("members"), snapshot.members.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
@@ -31,11 +33,13 @@ class FirestoreSyncService(
             snapshot.changeLog
         }
         uploadChangeLog(root.collection("changes"), changeLog)
+        Log.d("FirestoreSyncService", "Push sync completed successfully for account: $accountEmail")
     }
 
     suspend fun pullSnapshot(accountEmail: String): SyncSnapshot {
+        Log.d("FirestoreSyncService", "Starting pull sync for account: $accountEmail")
         val root = firestore.collection("budgets").document(accountEmail)
-        return SyncSnapshot(
+        val snapshot = SyncSnapshot(
             categories = root.collection("categories").get().await().documents.mapNotNull { it.toCategory() },
             members = root.collection("members").get().await().documents.mapNotNull { it.toMember() },
             transactions = root.collection("transactions").get().await().documents.mapNotNull { it.toTransaction() },
@@ -44,9 +48,12 @@ class FirestoreSyncService(
             limits = root.collection("limits").get().await().documents.mapNotNull { it.toLimit() },
             changeLog = root.collection("changes").get().await().documents.mapNotNull { it.toChangeLog() },
         )
+        Log.d("FirestoreSyncService", "Pull sync completed successfully for account: $accountEmail, fetched ${snapshot.categories.size} categories, ${snapshot.members.size} members, ${snapshot.transactions.size} transactions, ${snapshot.recurringPayments.size} recurring payments, ${snapshot.invites.size} invites, ${snapshot.limits.size} limits")
+        return snapshot
     }
 
     suspend fun pullChanges(accountEmail: String, sinceEpochMillis: Long): SyncSnapshot {
+        Log.d("FirestoreSyncService", "Starting pull changes sync for account: $accountEmail, since: $sinceEpochMillis")
         val root = firestore.collection("budgets").document(accountEmail)
         val changedDocs = root.collection("changes")
             .whereGreaterThan("updatedAtEpochMillis", sinceEpochMillis)
@@ -55,9 +62,12 @@ class FirestoreSyncService(
             .documents
             .mapNotNull { it.toChangeLog() }
 
-        if (changedDocs.isEmpty()) return SyncSnapshot()
+        if (changedDocs.isEmpty()) {
+            Log.d("FirestoreSyncService", "No changes found for account: $accountEmail")
+            return SyncSnapshot()
+        }
 
-        return SyncSnapshot(
+        val snapshot = SyncSnapshot(
             categories = fetchChangedEntities(changedDocs, SyncEntityType.CATEGORY) { id ->
                 root.collection("categories").document(id.toString()).get().await().toCategory()
             },
@@ -78,6 +88,8 @@ class FirestoreSyncService(
             },
             changeLog = changedDocs,
         )
+        Log.d("FirestoreSyncService", "Pull changes sync completed for account: $accountEmail, fetched ${snapshot.categories.size} categories, ${snapshot.members.size} members, ${snapshot.transactions.size} transactions, ${snapshot.recurringPayments.size} recurring payments, ${snapshot.invites.size} invites, ${snapshot.limits.size} limits")
+        return snapshot
     }
 
     private suspend fun uploadCollection(collection: CollectionReference, docs: Map<String, Map<String, Any?>>) {

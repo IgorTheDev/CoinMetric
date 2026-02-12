@@ -1,7 +1,9 @@
 package com.coinmetric.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.coinmetric.sync.FirestoreSyncService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -122,6 +124,9 @@ class CoinMetricViewModel : ViewModel() {
         SampleTransaction("Зарплата", 85000, "2023-10-25", "Доход", true),
     )
 
+    private var syncService: FirestoreSyncService? = null
+    private var syncNotificationHelper: SyncNotificationHelper? = null
+
     private val categories = mutableListOf("Еда", "Транспорт", "Досуг", "Коммунальные", "Доход")
     private val categoryMonthlyLimits = mutableMapOf(
         "Еда" to 15_000,
@@ -165,6 +170,11 @@ class CoinMetricViewModel : ViewModel() {
                 )
             )
         }
+    }
+
+    fun initializeSyncService(context: Context) {
+        syncService = FirestoreSyncService()
+        syncNotificationHelper = SyncNotificationHelper(context)
     }
 
     fun updateCurrentUserEmail(email: String) {
@@ -710,13 +720,46 @@ class CoinMetricViewModel : ViewModel() {
 
         viewModelScope.launch {
             _settings.value = _settings.value.copy(isSyncInProgress = true)
-            delay(1000)
-            _settings.value = _settings.value.copy(
-                isSyncInProgress = false,
-                pendingSyncItems = 0,
-                syncError = null,
-                lastSyncTimeLabel = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-            )
+            
+            try {
+                // Attempt to perform actual sync with Firestore
+                val service = syncService
+                val notificationHelper = syncNotificationHelper
+                
+                if (service != null && notificationHelper != null) {
+                    // Create a mock snapshot for demonstration
+                    // In real implementation, this would come from your local database
+                    val snapshot = com.coinmetric.data.repository.SyncSnapshot(
+                        categories = emptyList(), // Replace with actual data from your local DB
+                        members = emptyList(),
+                        transactions = emptyList(),
+                        recurringPayments = emptyList(),
+                        invites = emptyList(),
+                        limits = emptyList(),
+                        changeLog = emptyList()
+                    )
+                    
+                    service.pushSnapshot(current.currentUserEmail, snapshot)
+                    notificationHelper.notifySyncSuccess("Синхронизация с облаком завершена успешно")
+                } else {
+                    throw Exception("Sync service not initialized")
+                }
+                
+                _settings.value = _settings.value.copy(
+                    isSyncInProgress = false,
+                    pendingSyncItems = 0,
+                    syncError = null,
+                    lastSyncTimeLabel = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                )
+            } catch (e: Exception) {
+                _settings.value = _settings.value.copy(
+                    isSyncInProgress = false,
+                    syncError = "Ошибка синхронизации: ${e.message}"
+                )
+                
+                val notificationHelper = syncNotificationHelper
+                notificationHelper?.notifySyncError("Ошибка синхронизации: ${e.message}")
+            }
         }
     }
 
