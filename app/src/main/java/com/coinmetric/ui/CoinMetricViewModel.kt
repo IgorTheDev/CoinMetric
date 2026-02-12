@@ -10,8 +10,10 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 data class SampleTransaction(
+    val id: String = UUID.randomUUID().toString(),
     val title: String,
     val amount: Int,
     val date: String,
@@ -32,6 +34,7 @@ data class DashboardState(
 )
 
 data class TransactionUiModel(
+    val id: String,
     val title: String,
     val amount: Int,
     val date: String,
@@ -75,12 +78,10 @@ data class FamilyInviteUiModel(
 
 class CoinMetricViewModel : ViewModel() {
     private val transactions = mutableListOf(
-        SampleTransaction("Продукты", -1800, "Сегодня", "Еда", false),
-        SampleTransaction("Кафе", -560, "Вчера", "Досуг", false),
-        SampleTransaction("Зарплата", 85000, "2 дня назад", "Доход", true),
+        SampleTransaction(title = "Продукты", amount = -1800, date = "2026-02-10", category = "Еда", income = false),
+        SampleTransaction(title = "Кафе", amount = -560, date = "2026-02-09", category = "Досуг", income = false),
+        SampleTransaction(title = "Зарплата", amount = 85000, date = "2026-02-08", category = "Доход", income = true),
     )
-    
-    private val transactionIds = mutableMapOf<String, SampleTransaction>() // Маппинг ID -> транзакция
 
     private val _dashboard = MutableStateFlow(buildDashboardState())
     val dashboard: StateFlow<DashboardState> = _dashboard.asStateFlow()
@@ -143,17 +144,13 @@ class CoinMetricViewModel : ViewModel() {
         val signedAmount = if (state.isIncome) validAmount else -validAmount
         
         if (state.id != null) {
-            // Редактирование существующей транзакции
-            val index = transactions.indexOfFirst { 
-                // Здесь нужно определить, как идентифицировать транзакцию для редактирования
-                // Для простоты будем использовать индекс, но в реальной реализации нужно использовать ID
-                it.hashCode() == state.id.toIntOrNull() ?: 0
-            }
+            val index = transactions.indexOfFirst { it.id == state.id }
             if (index != -1) {
                 transactions[index] = SampleTransaction(
+                    id = transactions[index].id,
                     title = state.note.ifBlank { if (state.isIncome) "Доход" else "Расход" },
                     amount = signedAmount,
-                    date = "Сегодня", // В реальной реализации нужно сохранить исходную дату
+                    date = transactions[index].date,
                     category = state.category,
                     income = state.isIncome,
                 )
@@ -165,7 +162,7 @@ class CoinMetricViewModel : ViewModel() {
                 SampleTransaction(
                     title = state.note.ifBlank { if (state.isIncome) "Доход" else "Расход" },
                     amount = signedAmount,
-                    date = "Сегодня",
+                    date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
                     category = state.category,
                     income = state.isIncome,
                 ),
@@ -178,11 +175,9 @@ class CoinMetricViewModel : ViewModel() {
         onSuccess()
     }
     
-    fun startEditingTransaction(transaction: SampleTransaction) {
-        // Генерируем ID для редактируемой транзакции (в реальной реализации это будет UUID)
-        val id = transaction.hashCode().toString()
+    fun startEditingTransaction(transaction: TransactionUiModel) {
         _addState.value = AddTransactionState(
-            id = id,
+            id = transaction.id,
             amount = kotlin.math.abs(transaction.amount).toString(),
             category = transaction.category,
             note = transaction.title,
@@ -370,6 +365,7 @@ class CoinMetricViewModel : ViewModel() {
             expense = totalExpense,
             recentTransactions = transactions.take(5).map { tx ->
                 TransactionUiModel(
+                    id = tx.id,
                     title = tx.title,
                     amount = tx.amount,
                     date = tx.date,

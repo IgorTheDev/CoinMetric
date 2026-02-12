@@ -21,14 +21,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -45,6 +43,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -80,6 +83,7 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
     val navScreens = listOf(
         Screen.Dashboard,
         Screen.Calendar,
+        Screen.Add,
         Screen.Analytics,
         Screen.Settings,
     )
@@ -115,19 +119,6 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                     }
                 }
             },
-            floatingActionButton = {
-                if (currentRoute != Screen.Add.route) {
-                    FloatingActionButton(
-                        onClick = { navController.navigate(Screen.Add.route) },
-                        modifier = Modifier.size(72.dp),
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ) {
-                        Text("➕", fontSize = MaterialTheme.typography.headlineSmall.fontSize)
-                    }
-                }
-            },
-            floatingActionButtonPosition = FabPosition.Center,
         ) { padding ->
             MobileLayout(padding) {
                 NavHost(
@@ -138,7 +129,7 @@ fun CoinMetricRoot(vm: CoinMetricViewModel = viewModel()) {
                         DashboardScreen(vm)
                     }
                     composable(Screen.Calendar.route) {
-                        CalendarScreen(vm)
+                        CalendarScreen(vm) { navController.navigate(Screen.Add.route) }
                     }
                     composable(Screen.Add.route) {
                         AddScreen(vm) { navController.navigate(Screen.Dashboard.route) }
@@ -310,6 +301,9 @@ private fun MetricCard(title: String, value: String, modifier: Modifier = Modifi
 @Composable
 private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
     val state by vm.addState.collectAsStateWithLifecycle()
+    var calculatorExpanded by remember { mutableStateOf(false) }
+    var expression by remember { mutableStateOf(state.amount) }
+
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Text(
@@ -319,9 +313,6 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
             )
         }
         item {
-            var calculatorExpanded by remember { mutableStateOf(false) }
-            var expression by remember { mutableStateOf("") }
-            
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
                 value = state.amount,
@@ -334,48 +325,29 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                     state.amountError?.let { Text(it) }
                 },
                 trailingIcon = {
-                    IconButton(onClick = { calculatorExpanded = !calculatorExpanded }) {
+                    IconButton(onClick = {
+                        calculatorExpanded = !calculatorExpanded
+                        if (calculatorExpanded) expression = state.amount
+                    }) {
                         Text("🧮", fontSize = MaterialTheme.typography.bodyLarge.fontSize)
                     }
                 }
             )
-            
+
             if (calculatorExpanded) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            modifier = Modifier.fillMaxWidth(),
-                            value = expression,
-                            onValueChange = { expression = it },
-                            label = { Text("Выражение") },
-                            placeholder = { Text("например: 100+50*2") }
-                        )
-                        
-                        Button(
-                            onClick = {
-                                try {
-                                    // Простой парсер выражений
-                                    val result = expression.replace(" ", "").toDoubleOrNull() ?: evalMathExpression(expression)
-                                    vm.updateAmount(result.toString())
-                                    calculatorExpanded = false
-                                    expression = ""
-                                } catch (e: Exception) {
-                                    // В реальной реализации нужно будет обработать ошибку
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Вычислить")
+                CalculatorPad(
+                    expression = expression,
+                    onExpressionChange = { expression = it },
+                    onApply = {
+                        val result = runCatching { evalMathExpression(expression) }.getOrNull()
+                        if (result != null && result >= 0) {
+                            vm.updateAmount(result.toInt().toString())
+                            expression = result.toInt().toString()
+                            calculatorExpanded = false
                         }
-                    }
-                }
+                    },
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
         item {
@@ -416,10 +388,58 @@ private fun AddScreen(vm: CoinMetricViewModel, goToDashboard: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { vm.saveTransaction(goToDashboard) },
             ) {
-                Text("Сохранить")
+                Text(if (state.id == null) "Сохранить" else "Сохранить изменения")
             }
         }
         item { Spacer(Modifier.height(72.dp)) }
+    }
+}
+
+@Composable
+private fun CalculatorPad(
+    expression: String,
+    onExpressionChange: (String) -> Unit,
+    onApply: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val keys = listOf(
+        listOf("7", "8", "9", "/"),
+        listOf("4", "5", "6", "*"),
+        listOf("1", "2", "3", "-"),
+        listOf("0", "(", ")", "+"),
+    )
+
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = expression,
+                onValueChange = onExpressionChange,
+                label = { Text("Калькулятор") },
+                singleLine = true,
+            )
+            keys.forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { key ->
+                        Button(
+                            onClick = { onExpressionChange(expression + key) },
+                            modifier = Modifier.weight(1f),
+                        ) { Text(key) }
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { onExpressionChange("") }, modifier = Modifier.weight(1f)) { Text("C") }
+                Button(
+                    onClick = { onExpressionChange(expression.dropLast(1)) },
+                    modifier = Modifier.weight(1f),
+                ) { Text("⌫") }
+                Button(onClick = onApply, modifier = Modifier.weight(2f)) { Text("=") }
+            }
+        }
     }
 }
 
@@ -507,34 +527,16 @@ private fun AnalyticsScreen(vm: CoinMetricViewModel) {
 }
 
 @Composable
-private fun CalendarScreen(vm: CoinMetricViewModel) {
+private fun CalendarScreen(vm: CoinMetricViewModel, openAddScreen: () -> Unit) {
     val state by vm.dashboard.collectAsStateWithLifecycle()
     val transactions = state.recentTransactions
-    var selectedDate by remember { mutableStateOf<String?>(null) }
-    
-    // Получаем список всех уникальных дат из транзакций
-    val allDates = remember(transactions) {
-        transactions.map { it.date }.distinct()
-    }
-    
+    val datesWithTransactions = remember(transactions) { transactions.map { LocalDate.parse(it.date) }.toSet() }
+    var selectedDate by remember { mutableStateOf(datesWithTransactions.maxOrNull() ?: LocalDate.now()) }
+
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (state.isLoading) {
-            item {
-                Card(Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            }
-        }
         item {
             Text(
-                "История транзакций с группировкой по дате",
+                "История транзакций по датам. Нажмите на операцию, чтобы отредактировать.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -543,11 +545,10 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Календарь", fontWeight = FontWeight.SemiBold)
-                    
-                    // Отображаем календарь с возможностью выбора даты
                     CalendarView(
-                        datesWithTransactions = allDates,
-                        onDateSelected = { selectedDate = it }
+                        selectedDate = selectedDate,
+                        datesWithTransactions = datesWithTransactions,
+                        onDateSelected = { selectedDate = it },
                     )
                 }
             }
@@ -555,20 +556,30 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Выбранная дата", fontWeight = FontWeight.SemiBold)
-                    val selectedItems = if (selectedDate != null) {
-                        transactions.filter { it.date == selectedDate }
+                    Text("Операции за ${selectedDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}", fontWeight = FontWeight.SemiBold)
+                    val selectedItems = transactions.filter { it.date == selectedDate.toString() }
+                    if (selectedItems.isEmpty()) {
+                        Text("На выбранную дату операций нет")
                     } else {
-                        emptyList()
-                    }
-                    if (selectedDate == null || selectedItems.isEmpty()) {
-                        Text("Выберите дату, чтобы увидеть операции")
-                    } else {
-                        Text(selectedDate!!, fontWeight = FontWeight.Medium)
                         selectedItems.forEach { tx ->
                             val sign = if (tx.amount >= 0) "+" else "-"
-                            Text("$sign${kotlin.math.abs(tx.amount).toRubCurrency()} · ${tx.title}")
-                            Spacer(Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        vm.startEditingTransaction(tx)
+                                        openAddScreen()
+                                    }
+                                    .padding(vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column {
+                                    Text(tx.title, fontWeight = FontWeight.Medium)
+                                    Text(tx.category, style = MaterialTheme.typography.bodySmall)
+                                }
+                                Text("$sign${kotlin.math.abs(tx.amount).toRubCurrency()}")
+                            }
                         }
                     }
                 }
@@ -580,149 +591,69 @@ private fun CalendarScreen(vm: CoinMetricViewModel) {
 
 @Composable
 fun CalendarView(
-    datesWithTransactions: List<String>,
-    onDateSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    selectedDate: LocalDate,
+    datesWithTransactions: Set<LocalDate>,
+    onDateSelected: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    var currentDate by remember { mutableStateOf(java.util.Calendar.getInstance()) }
-    val selectedCalendar = remember { java.util.Calendar.getInstance() }
-    
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    var currentMonth by remember { mutableStateOf(YearMonth.from(selectedDate)) }
+    val firstDay = currentMonth.atDay(1)
+    val leadingEmpty = (firstDay.dayOfWeek.value + 6) % 7
+    val monthDays = currentMonth.lengthOfMonth()
+    val monthFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru", "RU"))
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = {
-                currentDate.apply {
-                    add(java.util.Calendar.MONTH, -1)
-                }
-            }) {
-                Text("◀")
-            }
-            
+            IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) { Text("◀") }
             Text(
-                "${currentDate.get(java.util.Calendar.YEAR)} ${
-                    java.text.DateFormatSymbols().shortMonths[currentDate.get(java.util.Calendar.MONTH)]
-                }",
+                currentMonth.atDay(1).format(monthFormatter).replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
             )
-            
-            IconButton(onClick = {
-                currentDate.apply {
-                    add(java.util.Calendar.MONTH, 1)
-                }
-            }) {
-                Text("▶")
-            }
+            IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) { Text("▶") }
         }
-        
-        // Дни недели
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
+
+        Row(modifier = Modifier.fillMaxWidth()) {
             listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEach { day ->
-                Text(
-                    day,
-                    modifier = Modifier.weight(1f),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall
-                )
+                Text(day, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
             }
         }
-        
-        // Календарная сетка
-        val firstDayOfMonth = java.util.Calendar.getInstance().apply {
-            time = currentDate.time
-            set(java.util.Calendar.DAY_OF_MONTH, 1)
-        }
-        val daysInMonth = firstDayOfMonth.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
-        val firstDayOfWeek = firstDayOfMonth.get(java.util.Calendar.DAY_OF_WEEK) - 2 // Понедельник как первый день
-        var dayCounter = 1
-        
-        for (weekIndex in 0..5) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                for (dayOfWeek in 0..6) {
-                    if (weekIndex == 0 && dayOfWeek < firstDayOfWeek) {
-                        Text("", modifier = Modifier.weight(1f))
-                    } else if (dayCounter <= daysInMonth) {
-                        val dayString = String.format("%02d", dayCounter)
-                        val fullDate = "${currentDate.get(java.util.Calendar.YEAR)}-${
-                            String.format("%02d", currentDate.get(java.util.Calendar.MONTH) + 1)
-                        }-$dayString"
-                        
-                        val hasTransactions = datesWithTransactions.contains(fullDate)
-                        val isSelected = selectedCalendar.get(java.util.Calendar.DAY_OF_MONTH) == dayCounter &&
-                                selectedCalendar.get(java.util.Calendar.MONTH) == currentDate.get(java.util.Calendar.MONTH) &&
-                                selectedCalendar.get(java.util.Calendar.YEAR) == currentDate.get(java.util.Calendar.YEAR)
-                        
-                        CalendarDay(
-                            day = dayCounter,
-                            hasTransactions = hasTransactions,
-                            isSelected = isSelected,
-                            onClick = {
-                                selectedCalendar.set(java.util.Calendar.DAY_OF_MONTH, dayCounter)
-                                selectedCalendar.set(java.util.Calendar.MONTH, currentDate.get(java.util.Calendar.MONTH))
-                                selectedCalendar.set(java.util.Calendar.YEAR, currentDate.get(java.util.Calendar.YEAR))
-                                onDateSelected(fullDate)
-                            }
-                        )
-                        dayCounter++
+
+        val totalCells = ((leadingEmpty + monthDays + 6) / 7) * 7
+        for (weekStart in 0 until totalCells step 7) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (offset in 0..6) {
+                    val index = weekStart + offset
+                    val dayNumber = index - leadingEmpty + 1
+                    if (dayNumber !in 1..monthDays) {
+                        Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
                     } else {
-                        Text("", modifier = Modifier.weight(1f))
+                        val date = currentMonth.atDay(dayNumber)
+                        val isSelected = date == selectedDate
+                        val hasTransactions = date in datesWithTransactions
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .border(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                )
+                                .background(
+                                    if (hasTransactions) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    else Color.Transparent,
+                                )
+                                .clickable { onDateSelected(date) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(dayNumber.toString(), fontWeight = if (hasTransactions) FontWeight.Bold else FontWeight.Normal)
+                        }
                     }
                 }
-            }
-            if (dayCounter > daysInMonth) break
-        }
-    }
-}
-
-@Composable
-fun CalendarDay(
-    day: Int,
-    hasTransactions: Boolean,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .clickable { onClick() }
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                shape = androidx.compose.foundation.shape.CircleShape
-            )
-            .background(
-                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                day.toString(),
-                style = if (isSelected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
-            if (hasTransactions) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        )
-                )
             }
         }
     }
@@ -898,62 +829,71 @@ private fun SettingRow(title: String, checked: Boolean, onCheckedChange: (Boolea
  * Поддерживает основные операции: +, -, *, /
  */
 fun evalMathExpression(expr: String): Double {
-    // Упрощенная реализация для базовых арифметических операций
-    // В реальном проекте лучше использовать библиотеку для парсинга выражений
-    
-    // Удаляем пробелы
-    var expression = expr.replace(" ", "")
-    
-    // Проверяем наличие операций
-    if ("+" in expression || "-" in expression || "*" in expression || "/" in expression) {
-        // Простой рекурсивный спуск для выражений вида a+b, a-b, a*b, a/b
-        // Ищем последнюю операцию сложения/вычитания (с учетом приоритета)
-        var bracketLevel = 0
-        var lastOpPos = -1
-        var lastOp = '+'
-        
-        for (i in expression.length - 1 downTo 0) {
-            when (expression[i]) {
-                ')' -> bracketLevel++
-                '(' -> bracketLevel--
-                '+', '-' -> {
-                    if (bracketLevel == 0) {
-                        if (lastOpPos == -1) {
-                            lastOpPos = i
-                            lastOp = expression[i]
-                        }
-                    }
-                }
-                '*', '/' -> {
-                    if (bracketLevel == 0) {
-                        lastOpPos = i
-                        lastOp = expression[i]
-                    }
-                }
-            }
-        }
-        
-        if (lastOpPos != -1) {
-            val left = expression.substring(0, lastOpPos)
-            val right = expression.substring(lastOpPos + 1)
-            val leftVal = evalMathExpression(left)
-            val rightVal = evalMathExpression(right)
-            
-            return when (lastOp) {
-                '+' -> leftVal + rightVal
-                '-' -> leftVal - rightVal
-                '*' -> leftVal * rightVal
-                '/' -> leftVal / rightVal
+    val tokens = expr.replace(" ", "")
+    if (tokens.isBlank()) return 0.0
+
+    fun precedence(op: Char): Int = when (op) {
+        '+', '-' -> 1
+        '*', '/' -> 2
+        else -> 0
+    }
+
+    val values = ArrayDeque<Double>()
+    val operators = ArrayDeque<Char>()
+    var i = 0
+
+    fun applyTopOperator() {
+        val op = operators.removeLast()
+        val right = values.removeLast()
+        val left = values.removeLast()
+        values.addLast(
+            when (op) {
+                '+' -> left + right
+                '-' -> left - right
+                '*' -> left * right
+                '/' -> left / right
                 else -> 0.0
+            },
+        )
+    }
+
+    while (i < tokens.length) {
+        val ch = tokens[i]
+        when {
+            ch.isDigit() || ch == '.' -> {
+                var j = i
+                while (j < tokens.length && (tokens[j].isDigit() || tokens[j] == '.')) j++
+                values.addLast(tokens.substring(i, j).toDouble())
+                i = j
             }
+            ch == '(' -> {
+                operators.addLast(ch)
+                i++
+            }
+            ch == ')' -> {
+                while (operators.isNotEmpty() && operators.last() != '(') applyTopOperator()
+                if (operators.isNotEmpty() && operators.last() == '(') operators.removeLast()
+                i++
+            }
+            ch in charArrayOf('+', '-', '*', '/') -> {
+                while (operators.isNotEmpty() && precedence(operators.last()) >= precedence(ch)) {
+                    if (operators.last() == '(') break
+                    applyTopOperator()
+                }
+                operators.addLast(ch)
+                i++
+            }
+            else -> i++
         }
     }
-    
-    // Если это число или выражение в скобках
-    if (expression.startsWith("(") && expression.endsWith(")")) {
-        return evalMathExpression(expression.substring(1, expression.length - 1))
+
+    while (operators.isNotEmpty()) {
+        if (operators.last() == '(') {
+            operators.removeLast()
+        } else {
+            applyTopOperator()
+        }
     }
-    
-    // Пытаемся распарсить как число
-    return expression.toDoubleOrNull() ?: 0.0
+
+    return values.lastOrNull() ?: 0.0
 }
