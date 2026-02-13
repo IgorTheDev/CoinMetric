@@ -202,7 +202,7 @@ fun CoinMetricRoot(
                             onOnboardingVisibilityChanged = { isVisible ->
                                 onboardingPrefs.edit().putBoolean("onboarding_completed", !isVisible).apply()
                             },
-                            onGoogleSignInClick = { vm.performGoogleSignIn() }
+                            onGoogleSignInClick = { /* Removed Google Sign-In functionality */ }
                         )
                     }
                     composable(Screen.Subscription.route) {
