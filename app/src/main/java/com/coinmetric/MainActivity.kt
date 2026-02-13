@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.coinmetric.auth.GoogleAuthManager
 import com.coinmetric.ui.CoinMetricRoot
@@ -16,15 +17,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Initialize the ViewModel
-        val vm: CoinMetricViewModel = viewModel()
-        
-        // Initialize GoogleAuthManager
-        googleAuthManager = GoogleAuthManager(this, vm)
-        lifecycle.addObserver(googleAuthManager)
-        
-        val requestedRoute = intent?.getStringExtra(EXTRA_START_ROUTE)
         setContent {
+            // Initialize the ViewModel inside the composable context
+            val vm: CoinMetricViewModel = viewModel()
+            
+            // Initialize GoogleAuthManager
+            val authManager = GoogleAuthManager(this, vm)
+            DisposableEffect(authManager) {
+                lifecycle.addObserver(authManager)
+                onDispose {
+                    lifecycle.removeObserver(authManager)
+                }
+            }
+            
+            val requestedRoute = intent?.getStringExtra(EXTRA_START_ROUTE)
             CoinMetricRoot(startRoute = requestedRoute)
         }
     }
