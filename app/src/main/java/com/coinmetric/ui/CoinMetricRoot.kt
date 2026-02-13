@@ -89,6 +89,7 @@ import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.PercentFormatter
+import com.coinmetric.auth.GoogleAuthConfig
 
 
 private sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
@@ -1173,9 +1174,37 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Un
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Тема и синхронизация", fontWeight = FontWeight.SemiBold)
-                    SettingRow("Тёмная тема", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
-                    SettingRow("Синхронизация Google", settings.googleSyncEnabled) { vm.setGoogleSync(it) }
-                    SettingRow("Офлайн-режим", settings.isOfflineMode) { vm.setOfflineMode(it) }
+                    SettingRow(\"Тёмная тема\", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
+                    SettingRow(\"Синхронизация Google\", settings.googleSyncEnabled) { 
+                        vm.setGoogleSync(it) 
+                    }
+                    if (settings.googleSyncEnabled) {
+                        // Show current user email when Google sync is enabled
+                        Text(
+                            text = "Аккаунт: ${getCurrentUserEmail()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        
+                        // Add Google Sign-In button when sync is enabled but no account is specified
+                        if (settings.currentUserEmail.isEmpty()) {
+                            Button(
+                                onClick = { 
+                                    val signInIntent = GoogleAuthConfig.getGoogleSignInClient(context).signInIntent
+                                    (context as android.app.Activity).startActivityForResult(signInIntent, 9001)
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4285F4), // Google blue
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("Войти через Google")
+                            }
+                        }
+                    }
+                    SettingRow(\"Офлайн-режим\", settings.isOfflineMode) { vm.setOfflineMode(it) }
                     SettingRow("Показывать подсказки", settings.showOnboarding) {
                         vm.setOnboardingVisible(it)
                         onOnboardingVisibilityChanged(it)
