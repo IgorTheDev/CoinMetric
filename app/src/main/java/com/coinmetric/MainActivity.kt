@@ -17,16 +17,20 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
+        // Initialize GoogleAuthManager before setContent to avoid lifecycle issues
+        googleAuthManager = GoogleAuthManager(this, null) // We'll pass the VM later
+        
         setContent {
             // Initialize the ViewModel inside the composable context
             val vm: CoinMetricViewModel = viewModel()
             
-            // Initialize GoogleAuthManager
-            val authManager = GoogleAuthManager(this, vm)
-            DisposableEffect(authManager) {
-                lifecycle.addObserver(authManager)
+            // Update the auth manager with the VM reference
+            googleAuthManager.setViewModel(vm)
+            
+            DisposableEffect(googleAuthManager) {
+                lifecycle.addObserver(googleAuthManager)
                 onDispose {
-                    lifecycle.removeObserver(authManager)
+                    lifecycle.removeObserver(googleAuthManager)
                 }
             }
             
