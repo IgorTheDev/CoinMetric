@@ -202,7 +202,7 @@ fun CoinMetricRoot(
                             onOnboardingVisibilityChanged = { isVisible ->
                                 onboardingPrefs.edit().putBoolean("onboarding_completed", !isVisible).apply()
                             },
-                            onGoogleSignInClick = { /* Removed Google Sign-In functionality */ }
+
                         )
                     }
                     composable(Screen.Subscription.route) {
@@ -1158,7 +1158,7 @@ private fun SettingsScreen(
     vm: CoinMetricViewModel, 
     onOpenSubscription: () -> Unit, 
     onOnboardingVisibilityChanged: (Boolean) -> Unit,
-    onGoogleSignInClick: () -> Unit
+
 ) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val canManageMembers = settings.currentUserRole == "owner"
@@ -1380,34 +1380,7 @@ private fun SettingsScreen(
                     Text("Валюта по умолчанию: RUB")
                     SettingRow("Уведомления о лимитах", settings.recurringRemindersEnabled) { vm.setRecurringReminders(it) }
                     
-                    // Google Sign In section
-                    Text("Синхронизация с Google", fontWeight = FontWeight.SemiBold)
-                    if (settings.googleSyncEnabled) {
-                        Text("Вход выполнен: ${getCurrentUserEmail()}")
-                        Button(
-                            onClick = {
-                                vm.setGoogleSync(false)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Отключить синхронизацию")
-                        }
-                    } else {
-                        Text(
-                            text = "Войдите в аккаунт для использования синхронизации",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        
-                        // Google Sign-In button
-                        Button(
-                            onClick = onGoogleSignInClick,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Войти через Google")
-                        }
-                    }
+
                 }
             }
         }
@@ -1649,6 +1622,6 @@ private fun CalendarScreenPreview() {
 @Composable
 private fun SettingsScreenPreview() {
     CoinMetricTheme {
-        SettingsScreen(vm = CoinMetricViewModel(), onOpenSubscription = {}, onOnboardingVisibilityChanged = {}, onGoogleSignInClick = {})
+        SettingsScreen(vm = CoinMetricViewModel(), onOpenSubscription = {}, onOnboardingVisibilityChanged = {})
     }
 }
