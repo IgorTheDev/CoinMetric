@@ -91,6 +91,9 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+    
+    // Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 
 
     testImplementation("junit:junit:4.13.2")
