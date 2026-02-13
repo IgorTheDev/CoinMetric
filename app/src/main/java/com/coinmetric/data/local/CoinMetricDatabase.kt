@@ -25,6 +25,7 @@ import com.coinmetric.data.model.TransactionEntity
         SyncState::class,
     ],
     version = 3,
+    exportSchema = false
 )
 abstract class CoinMetricDatabase : RoomDatabase() {
     abstract fun dao(): CoinMetricDao
