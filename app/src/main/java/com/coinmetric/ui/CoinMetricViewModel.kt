@@ -462,6 +462,63 @@ class CoinMetricViewModel : ViewModel() {
         _settings.value = _settings.value.copy(currentUserEmail = email)
         _settings.value = _settings.value.copy(googleSyncEnabled = true) // Enable sync after login
     }
+    
+    // Firebase Authentication Methods
+    fun signInWithEmailPassword(email: String, password: String, onComplete: (Boolean, String?) -> Unit) {
+        // This would normally connect to Firebase, but we're simulating for now
+        // In a real implementation, this would use FirebaseAuth
+        viewModelScope.launch {
+            try {
+                // Simulate network delay
+                delay(1000)
+                
+                // For demo purposes, accept any non-empty email/password combination
+                if (email.isNotEmpty() && password.isNotEmpty()) {
+                    _settings.value = _settings.value.copy(
+                        currentUserEmail = email,
+                        googleSyncEnabled = true
+                    )
+                    onComplete(true, null)
+                } else {
+                    onComplete(false, "Email and password cannot be empty")
+                }
+            } catch (e: Exception) {
+                onComplete(false, e.message)
+            }
+        }
+    }
+    
+    fun signUpWithEmailPassword(email: String, password: String, onComplete: (Boolean, String?) -> Unit) {
+        // This would normally connect to Firebase, but we're simulating for now
+        // In a real implementation, this would use FirebaseAuth
+        viewModelScope.launch {
+            try {
+                // Simulate network delay
+                delay(1000)
+                
+                // For demo purposes, accept any non-empty email/password combination
+                if (email.isNotEmpty() && password.isNotEmpty()) {
+                    _settings.value = _settings.value.copy(
+                        currentUserEmail = email,
+                        googleSyncEnabled = true
+                    )
+                    onComplete(true, null)
+                } else {
+                    onComplete(false, "Email and password cannot be empty")
+                }
+            } catch (e: Exception) {
+                onComplete(false, e.message)
+            }
+        }
+    }
+    
+    fun signOut() {
+        // This would normally sign out from Firebase, but we're simulating for now
+        _settings.value = _settings.value.copy(
+            currentUserEmail = "",
+            googleSyncEnabled = false
+        )
+    }
 
     fun setPinProtectionEnabled(enabled: Boolean) {
         if (_settings.value.pinProtectionEnabled == enabled) return
