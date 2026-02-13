@@ -107,7 +107,11 @@ private data class HeaderConfig(
 )
 
 @Composable
-fun CoinMetricRoot(startRoute: String? = null, vm: CoinMetricViewModel = viewModel()) {
+fun CoinMetricRoot(
+    startRoute: String? = null, 
+    vm: CoinMetricViewModel = viewModel(),
+    onGoogleSignInClick: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val onboardingPrefs = remember(context) { context.getSharedPreferences("coinmetric_prefs", android.content.Context.MODE_PRIVATE) }
     LaunchedEffect(vm) {
@@ -199,6 +203,7 @@ fun CoinMetricRoot(startRoute: String? = null, vm: CoinMetricViewModel = viewMod
                             onOnboardingVisibilityChanged = { isVisible ->
                                 onboardingPrefs.edit().putBoolean("onboarding_completed", !isVisible).apply()
                             },
+                            onGoogleSignInClick = { /* Handle Google Sign-In in MainActivity */ }
                         )
                     }
                     composable(Screen.Subscription.route) {
@@ -1150,7 +1155,12 @@ fun CalendarView(
 }
 
 @Composable
-private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Unit, onOnboardingVisibilityChanged: (Boolean) -> Unit) {
+private fun SettingsScreen(
+    vm: CoinMetricViewModel, 
+    onOpenSubscription: () -> Unit, 
+    onOnboardingVisibilityChanged: (Boolean) -> Unit,
+    onGoogleSignInClick: () -> Unit
+) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val canManageMembers = settings.currentUserRole == "owner"
 
@@ -1392,6 +1402,14 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Un
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        
+                        // Google Sign-In button
+                        Button(
+                            onClick = onGoogleSignInClick,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Войти через Google")
+                        }
                     }
                 }
             }
@@ -1634,6 +1652,6 @@ private fun CalendarScreenPreview() {
 @Composable
 private fun SettingsScreenPreview() {
     CoinMetricTheme {
-        SettingsScreen(vm = CoinMetricViewModel(), onOpenSubscription = {}, onOnboardingVisibilityChanged = {})
+        SettingsScreen(vm = CoinMetricViewModel(), onOpenSubscription = {}, onOnboardingVisibilityChanged = {}, onGoogleSignInClick = {})
     }
 }
