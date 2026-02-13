@@ -26,6 +26,8 @@ class MainActivity : AppCompatActivity() {
             
             // Update the auth manager with the VM reference
             googleAuthManager.setViewModel(vm)
+            // Also set the GoogleAuthManager in the ViewModel
+            vm.setGoogleAuthManager(googleAuthManager)
             
             DisposableEffect(googleAuthManager) {
                 lifecycle.addObserver(googleAuthManager)
