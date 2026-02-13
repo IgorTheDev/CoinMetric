@@ -22,7 +22,7 @@ import kotlinx.coroutines.tasks.await
 
 class GoogleAuthManager(
     private val activity: AppCompatActivity,
-    private val viewModel: CoinMetricViewModel,
+    private var viewModel: CoinMetricViewModel?,
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) : DefaultLifecycleObserver {
 
@@ -79,10 +79,10 @@ class GoogleAuthManager(
                 val userEmail = authResult.user?.email
                 if (!userEmail.isNullOrBlank()) {
                     // Update the ViewModel with the user's email
-                    viewModel.updateCurrentUserEmail(userEmail)
+                    viewModel?.updateCurrentUserEmail(userEmail)
                     
                     // Enable Google sync in settings
-                    viewModel.setGoogleSync(true)
+                    viewModel?.setGoogleSync(true)
                     
                     Log.d(TAG, "Authentication successful with email: $userEmail")
                 } else {
@@ -101,10 +101,10 @@ class GoogleAuthManager(
                 auth.signOut()
                 
                 // Reset user email in ViewModel
-                viewModel.updateCurrentUserEmail("")
+                viewModel?.updateCurrentUserEmail("")
                 
                 // Disable Google sync in settings
-                viewModel.setGoogleSync(false)
+                viewModel?.setGoogleSync(false)
                 
                 Log.d(TAG, "Successfully signed out")
             } catch (e: Exception) {
@@ -115,5 +115,9 @@ class GoogleAuthManager(
 
     fun getCurrentUserEmail(): String {
         return auth.currentUser?.email ?: ""
+    }
+
+    fun setViewModel(viewModel: CoinMetricViewModel) {
+        this.viewModel = viewModel
     }
 }
