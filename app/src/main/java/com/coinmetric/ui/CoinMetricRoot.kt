@@ -109,8 +109,7 @@ private data class HeaderConfig(
 @Composable
 fun CoinMetricRoot(
     startRoute: String? = null, 
-    vm: CoinMetricViewModel = viewModel(),
-    onGoogleSignInClick: (() -> Unit)? = null
+    vm: CoinMetricViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val onboardingPrefs = remember(context) { context.getSharedPreferences("coinmetric_prefs", android.content.Context.MODE_PRIVATE) }
@@ -203,7 +202,7 @@ fun CoinMetricRoot(
                             onOnboardingVisibilityChanged = { isVisible ->
                                 onboardingPrefs.edit().putBoolean("onboarding_completed", !isVisible).apply()
                             },
-                            onGoogleSignInClick = { /* Handle Google Sign-In in MainActivity */ }
+                            onGoogleSignInClick = { vm.performGoogleSignIn() }
                         )
                     }
                     composable(Screen.Subscription.route) {
