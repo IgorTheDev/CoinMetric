@@ -757,7 +757,11 @@ class CoinMetricViewModel : ViewModel() {
                         changeLog = emptyList()
                     )
                     
-                    service.pushSnapshot(current.currentUserEmail, snapshot)
+                    if (current.currentUserEmail.isNotBlank()) {
+                        service.pushSnapshot(current.currentUserEmail, snapshot)
+                    } else {
+                        throw IllegalArgumentException("Account email cannot be blank for Firestore document reference")
+                    }
                     notificationHelper.notifySyncSuccess("Синхронизация с облаком завершена успешно")
                 } else {
                     throw Exception("Sync service not initialized")
