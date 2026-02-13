@@ -740,6 +740,11 @@ class CoinMetricViewModel : ViewModel() {
             _settings.value = _settings.value.copy(isSyncInProgress = true)
             
             try {
+                // Check if email is blank before attempting sync
+                if (current.currentUserEmail.isBlank()) {
+                    throw IllegalArgumentException("Account email cannot be blank for Firestore document reference")
+                }
+                
                 // Attempt to perform actual sync with Firestore
                 val service = syncService
                 val notificationHelper = syncNotificationHelper
@@ -769,6 +774,15 @@ class CoinMetricViewModel : ViewModel() {
                     syncError = null,
                     lastSyncTimeLabel = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
                 )
+            } catch (e: IllegalArgumentException) {
+                Log.w("CoinMetricViewModel", "Warning: Sync operation failed due to invalid email: ${e.message}", e)
+                _settings.value = _settings.value.copy(
+                    isSyncInProgress = false,
+                    syncError = "Необходимо указать email для синхронизации. Перейдите в настройки и авторизуйтесь."
+                )
+                
+                val notificationHelper = syncNotificationHelper
+                notificationHelper?.notifySyncError("Необходимо указать email для синхронизации")
             } catch (e: Exception) {
                 Log.w("CoinMetricViewModel", "Warning: Sync operation failed with error: ${e.message}", e)
                 _settings.value = _settings.value.copy(
