@@ -3,18 +3,25 @@ package com.coinmetric.ui.auth
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.coinmetric.ui.CoinMetricViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import android.app.Activity
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,11 +41,48 @@ fun AuthScreen(
         return
     }
     
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    
+    // Получаем контекст
+    val context = LocalContext.current
+    
+    // Google Sign-In setup
+    val googleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        .requestIdToken("YOUR_WEB_CLIENT_ID") // Replace with your web client ID from Google Cloud Console
+        .requestEmail()
+        .build()
+    
+    val googleSignInClient = remember { GoogleSignIn.getClient(context, googleSignInOptions) }
+    
+    // Google Sign-In launcher
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)!!
+                val credential = GoogleAuthProvider.getCredential(account.idToken!!, null)
+                
+                auth.signInWithCredential(credential)
+                    .addOnCompleteListener { signInTask ->
+                        if (signInTask.isSuccessful) {
+                            onAuthSuccess()
+                        } else {
+                            errorMessage = signInTask.exception?.message ?: "Authentication failed"
+                            isLoading = false
+                        }
+                    }
+            } catch (e: ApiException) {
+                errorMessage = "Google Sign-In failed: ${e.message}"
+                isLoading = false
+            }
+        } else {
+            isLoading = false
+        }
+    }
     
     Column(
         modifier = modifier
@@ -53,30 +97,24 @@ fun AuthScreen(
             modifier = Modifier.padding(bottom = 32.dp)
         )
         
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            leadingIcon = {
-                Icon(Icons.Default.Email, contentDescription = "Email")
+        Button(
+            onClick = {
+                isLoading = true
+                errorMessage = null
+                googleSignInLauncher.launch(googleSignInClient.signInIntent)
             },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Пароль") },
-            leadingIcon = {
-                Icon(Icons.Default.Lock, contentDescription = "Password")
-            },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+            enabled = !isLoading,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Войти через Google")
+            }
+        }
         
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -85,74 +123,6 @@ fun AuthScreen(
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Button(
-            onClick = {
-                if (email.isNotEmpty() && password.isNotEmpty()) {
-                    isLoading = true
-                    errorMessage = null
-                    
-                    // Используем методы из ViewModel для аутентификации
-                    viewModel.signInWithEmailPassword(email, password) { success, error ->
-                        isLoading = false
-                        if (success) {
-                            onAuthSuccess()
-                        } else {
-                            errorMessage = error ?: "Ошибка аутентификации"
-                        }
-                    }
-                } else {
-                    errorMessage = "Пожалуйста, заполните все поля"
-                }
-            },
-            enabled = !isLoading,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text("Войти")
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        OutlinedButton(
-            onClick = {
-                if (email.isNotEmpty() && password.isNotEmpty()) {
-                    isLoading = true
-                    errorMessage = null
-                    
-                    // Используем методы из ViewModel для регистрации
-                    viewModel.signUpWithEmailPassword(email, password) { success, error ->
-                        isLoading = false
-                        if (success) {
-                            onAuthSuccess()
-                        } else {
-                            errorMessage = error ?: "Ошибка регистрации"
-                        }
-                    }
-                } else {
-                    errorMessage = "Пожалуйста, заполните все поля"
-                }
-            },
-            enabled = !isLoading,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text("Зарегистрироваться")
-            }
         }
     }
 }

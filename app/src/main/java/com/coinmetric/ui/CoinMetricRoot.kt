@@ -112,7 +112,7 @@ fun CoinMetricRoot(
     startRoute: String? = null, 
     vm: CoinMetricViewModel = viewModel()
 ) {
-    var isAuthenticated by remember { mutableStateOf(false) } // Изменено на false для обязательной аутентификации
+    var isAuthenticated by remember { mutableStateOf(true) } // Изменено на true чтобы убрать обязательную аутентификацию
     
     // Проверяем, авторизован ли пользователь
     val currentUserEmail = vm.settings.collectAsStateWithLifecycle().value.currentUserEmail
@@ -120,16 +120,6 @@ fun CoinMetricRoot(
         if (currentUserEmail.isNotEmpty()) {
             isAuthenticated = true
         }
-    }
-    
-    // Если пользователь не аутентифицирован, показываем экран аутентификации
-    if (!isAuthenticated) {
-        AuthScreen(
-            onAuthSuccess = { 
-                isAuthenticated = true 
-            }
-        )
-        return
     }
     
     val context = LocalContext.current
