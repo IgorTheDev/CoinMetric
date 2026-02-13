@@ -1,53 +1,52 @@
-```kotlin
-# Compiled and build artifacts
+```
+# Backup and temporary files
+backup_*
+temp_*
+
+# Compiled and binary files
 *.class
-*.jar
-*.war
-*.aar
-*.apk
-*.dex
-*.so
-*.dll
-*.exe
-*.out
+*.pyc
 *.o
 *.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
 
 # Dependencies
-.gradle/
-build/
-target/
-dist/
 node_modules/
 venv/
 .venv/
 __pycache__/
+.mypy_cache/
+.pytest_cache/
+target/
+.gradle/
+
+# Build artifacts
+dist/
+build/
+coverage/
+htmlcov/
 *.egg-info/
 
-# IDE files
-.idea/
+# Editors and IDEs
 .vscode/
-*.iml
-*.ipr
-*.iws
+.idea/
 *.swp
 *.swo
+*.tmp
 
 # System files
 .DS_Store
 Thumbs.db
-*.tmp
-*.log
-
-# Environment
 .env
 .env.local
 *.env.*
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
+# Logs
+*.log
 
 # Compressed files
 *.zip

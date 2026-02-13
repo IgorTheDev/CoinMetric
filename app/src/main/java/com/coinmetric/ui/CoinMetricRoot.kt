@@ -1174,8 +1174,8 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Un
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Тема и синхронизация", fontWeight = FontWeight.SemiBold)
-                    SettingRow(\"Тёмная тема\", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
-                    SettingRow(\"Синхронизация Google\", settings.googleSyncEnabled) { 
+                    SettingRow("Тёмная тема", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
+                    SettingRow("Синхронизация Google", settings.googleSyncEnabled) { 
                         vm.setGoogleSync(it) 
                     }
                     if (settings.googleSyncEnabled) {
@@ -1204,7 +1204,7 @@ private fun SettingsScreen(vm: CoinMetricViewModel, onOpenSubscription: () -> Un
                             }
                         }
                     }
-                    SettingRow(\"Офлайн-режим\", settings.isOfflineMode) { vm.setOfflineMode(it) }
+                    SettingRow("Офлайн-режим", settings.isOfflineMode) { vm.setOfflineMode(it) }
                     SettingRow("Показывать подсказки", settings.showOnboarding) {
                         vm.setOnboardingVisible(it)
                         onOnboardingVisibilityChanged(it)
