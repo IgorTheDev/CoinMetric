@@ -78,6 +78,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.coinmetric.ui.auth.AuthScreen
 import com.coinmetric.ui.theme.CoinMetricTheme
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.charts.PieChart
@@ -111,6 +112,26 @@ fun CoinMetricRoot(
     startRoute: String? = null, 
     vm: CoinMetricViewModel = viewModel()
 ) {
+    var isAuthenticated by remember { mutableStateOf(false) } // Изменено на false для обязательной аутентификации
+    
+    // Проверяем, авторизован ли пользователь
+    val currentUserEmail = vm.settings.collectAsStateWithLifecycle().value.currentUserEmail
+    LaunchedEffect(currentUserEmail) {
+        if (currentUserEmail.isNotEmpty()) {
+            isAuthenticated = true
+        }
+    }
+    
+    // Если пользователь не аутентифицирован, показываем экран аутентификации
+    if (!isAuthenticated) {
+        AuthScreen(
+            onAuthSuccess = { 
+                isAuthenticated = true 
+            }
+        )
+        return
+    }
+    
     val context = LocalContext.current
     val onboardingPrefs = remember(context) { context.getSharedPreferences("coinmetric_prefs", android.content.Context.MODE_PRIVATE) }
     LaunchedEffect(vm) {
