@@ -1183,8 +1183,6 @@ private fun SettingsScreen(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Тема и синхронизация", fontWeight = FontWeight.SemiBold)
                     SettingRow("Тёмная тема", settings.darkThemeEnabled) { vm.setDarkTheme(it) }
-                    SettingRow("Синхронизация Google", settings.googleSyncEnabled) { vm.setGoogleSync(it) }
-                    SettingRow("Офлайн-режим", settings.isOfflineMode) { vm.setOfflineMode(it) }
                     SettingRow("Показывать подсказки", settings.showOnboarding) {
                         vm.setOnboardingVisible(it)
                         onOnboardingVisibilityChanged(it)

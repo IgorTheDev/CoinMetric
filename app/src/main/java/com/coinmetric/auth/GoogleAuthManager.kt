@@ -36,7 +36,7 @@ class GoogleAuthManager(
     init {
         // Initialize Google Sign In options
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken("YOUR_WEB_CLIENT_ID") // Replace with your web client ID
+            .requestIdToken("1047100894264-kc7untqduu5cbqad0a7ra9q05j84hr94.apps.googleusercontent.com") // Web client ID from google-services.json
             .requestEmail()
             .build()
 
@@ -52,9 +52,12 @@ class GoogleAuthManager(
                 try {
                     val account = task.getResult(ApiException::class.java)!!
                     Log.d(TAG, "Firebase Auth with Google account: ${account.email}")
-                    firebaseAuthWithGoogle(account.idToken!!)
+                    firebaseAuthWithGoogle(account.idToken!!, account.email)
                 } catch (e: ApiException) {
                     Log.w(TAG, "Google sign in failed", e)
+                    // Update UI to reflect sign-in failure
+                    viewModel?.setGoogleSync(false)
+                    viewModel?.updateCurrentUserEmail("")
                 }
             }
         }
@@ -70,13 +73,14 @@ class GoogleAuthManager(
         signInLauncher.launch(signInIntent)
     }
 
-    private fun firebaseAuthWithGoogle(idToken: String) {
+    private fun firebaseAuthWithGoogle(idToken: String, email: String) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val credential = GoogleAuthProvider.getCredential(idToken, null)
                 val authResult = auth.signInWithCredential(credential).await()
                 
-                val userEmail = authResult.user?.email
+                val userEmail = email // Use the email passed from Google Sign-In
+                
                 if (!userEmail.isNullOrBlank()) {
                     // Update the ViewModel with the user's email
                     viewModel?.updateCurrentUserEmail(userEmail)
@@ -87,9 +91,15 @@ class GoogleAuthManager(
                     Log.d(TAG, "Authentication successful with email: $userEmail")
                 } else {
                     Log.w(TAG, "User email is null or blank after Google authentication")
+                    // Update UI to reflect sign-in failure
+                    viewModel?.setGoogleSync(false)
+                    viewModel?.updateCurrentUserEmail("")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Firebase authentication with Google failed", e)
+                // Update UI to reflect authentication failure
+                viewModel?.setGoogleSync(false)
+                viewModel?.updateCurrentUserEmail("")
             }
         }
     }
