@@ -1,7 +1,7 @@
 package com.coinmetric
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.DisposableEffect
@@ -10,7 +10,7 @@ import com.coinmetric.auth.GoogleAuthManager
 import com.coinmetric.ui.CoinMetricRoot
 import com.coinmetric.ui.CoinMetricViewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     private lateinit var googleAuthManager: GoogleAuthManager
     
     override fun onCreate(savedInstanceState: Bundle?) {
