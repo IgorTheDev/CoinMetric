@@ -129,12 +129,7 @@ class CoinMetricViewModel : ViewModel() {
         get() = CoinMetricApp.syncNotificationHelper
         private set(value) { /* no-op */ }
     
-    // Reference to GoogleAuthManager that will be set from MainActivity
-    private var googleAuthManager: com.coinmetric.auth.GoogleAuthManager? = null
-    
-    fun setGoogleAuthManager(authManager: com.coinmetric.auth.GoogleAuthManager) {
-        this.googleAuthManager = authManager
-    }
+
 
     private val transactions = mutableListOf(
         SampleTransaction("Продукты", -1800, "2023-10-27", "Еда", false),
@@ -462,19 +457,10 @@ class CoinMetricViewModel : ViewModel() {
         )
     }
 
-    fun setGoogleSync(enabled: Boolean) {
-        _settings.value = _settings.value.copy(googleSyncEnabled = enabled)
-        if (!enabled) {
-            _settings.value = _settings.value.copy(syncError = "Синхронизация отключена пользователем")
-        }
-        appendActivityLog(
-            action = "Google Sync",
-            target = if (enabled) "Включена" else "Отключена",
-        )
-    }
-    
-    fun performGoogleSignIn() {
-        googleAuthManager?.signIn()
+    fun setEmailPasswordSignIn(email: String, password: String) {
+        // Placeholder for email/password authentication logic
+        _settings.value = _settings.value.copy(currentUserEmail = email)
+        _settings.value = _settings.value.copy(googleSyncEnabled = true) // Enable sync after login
     }
 
     fun setPinProtectionEnabled(enabled: Boolean) {
