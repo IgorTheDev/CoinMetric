@@ -19,6 +19,9 @@ class FirestoreSyncService(
 ) {
     suspend fun pushSnapshot(accountEmail: String, snapshot: SyncSnapshot) {
         Log.d("FirestoreSyncService", "Starting push sync for account: $accountEmail")
+        if (accountEmail.isBlank()) {
+            throw IllegalArgumentException("Account email cannot be blank for Firestore document reference")
+        }
         try {
             val root = firestore.collection("budgets").document(accountEmail)
             uploadCollection(root.collection("categories"), snapshot.categories.associateBy({ it.id.toString() }, { it.toFirestoreMap() }))
@@ -43,6 +46,9 @@ class FirestoreSyncService(
 
     suspend fun pullSnapshot(accountEmail: String): SyncSnapshot {
         Log.d("FirestoreSyncService", "Starting pull sync for account: $accountEmail")
+        if (accountEmail.isBlank()) {
+            throw IllegalArgumentException("Account email cannot be blank for Firestore document reference")
+        }
         try {
             val root = firestore.collection("budgets").document(accountEmail)
             val snapshot = SyncSnapshot(
@@ -64,6 +70,9 @@ class FirestoreSyncService(
 
     suspend fun pullChanges(accountEmail: String, sinceEpochMillis: Long): SyncSnapshot {
         Log.d("FirestoreSyncService", "Starting pull changes sync for account: $accountEmail, since: $sinceEpochMillis")
+        if (accountEmail.isBlank()) {
+            throw IllegalArgumentException("Account email cannot be blank for Firestore document reference")
+        }
         val root = firestore.collection("budgets").document(accountEmail)
         val changedDocs = root.collection("changes")
             .whereGreaterThan("updatedAtEpochMillis", sinceEpochMillis)
